@@ -1191,7 +1191,7 @@ export default function EventDetailsPage() {
                 active:scale-[0.995]
               "
             >
-              Book Tickets
+              Book Your Slots
             </Link>
           ) : (
             <button
