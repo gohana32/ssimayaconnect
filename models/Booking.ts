@@ -213,3 +213,4 @@ export const Booking:
     'Booking',
     BookingSchema,
   );
+  

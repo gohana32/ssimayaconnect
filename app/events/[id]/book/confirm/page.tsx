@@ -944,56 +944,7 @@ export default function BookingConfirmationPage() {
      Only after MongoDB confirms booking.
   ========================================================== */
 
-  useEffect(() => {
-    if (
-      bookingState !==
-      'ready'
-    ) {
-      return;
-    }
-
-    const skipped =
-      searchParams.get(
-        'feedback',
-      ) ===
-      'skipped';
-
-    if (skipped) {
-      return;
-    }
-
-    const state =
-      sessionStorage.getItem(
-        `ssi-feedback-state:application:${eventId}`,
-      );
-
-    if (
-      state ===
-      'submitted'
-    ) {
-      return;
-    }
-
-    const timer =
-      window.setTimeout(
-        () => {
-          router.push(
-            `/events/${eventId}/book/feedback?scope=application`,
-          );
-        },
-        3000,
-      );
-
-    return () => {
-      window.clearTimeout(
-        timer,
-      );
-    };
-  }, [
-    bookingState,
-    eventId,
-    searchParams,
-  ]);
+  // No automatic redirect: users open feedback themselves via "Give Feedback".
 
   /* ==========================================================
      COMPUTED

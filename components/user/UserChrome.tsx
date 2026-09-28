@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 /*
  * One header + bottom nav for every user-side page on mobile,
@@ -16,6 +17,24 @@ export function UserHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const showBack = !ROOT_PAGES.includes(pathname);
+  // The event page's own header (with its share button) is hidden on phones.
+  const isEventDetails = /^\/events\/[^/]+$/.test(pathname) && !ROOT_PAGES.includes(pathname);
+  const [shared, setShared] = useState(false);
+
+  async function shareEvent() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: document.title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setShared(true);
+      window.setTimeout(() => setShared(false), 1800);
+    } catch {
+      // User cancelled the share sheet.
+    }
+  }
 
   function goBack() {
     if (window.history.length > 1) router.back();
@@ -42,6 +61,25 @@ export function UserHeader() {
           <Image src="/logos/ssilogo.png" alt="SSI" width={24} height={24} priority className="shrink-0 object-contain" />
           <span className="text-[13px] font-semibold text-secondary">SSI Maya Connect</span>
         </Link>
+
+        {isEventDetails && (
+          <button
+            type="button"
+            onClick={shareEvent}
+            aria-label="Share this event"
+            className="ml-auto grid h-9 w-9 shrink-0 place-items-center rounded-full text-secondary transition active:scale-95 active:bg-gray-200/70"
+          >
+            {shared ? (
+              <svg className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0-12 4 4m-4-4L8 7M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
     </header>
   );

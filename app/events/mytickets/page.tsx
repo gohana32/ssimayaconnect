@@ -1358,9 +1358,9 @@ function TicketCard({
             text-gray-500
           "
         >
-          {
-            ticket.date
-          }
+          {ticket.date
+              ? new Date(ticket.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+              : ''}
 
           {' · '}
 
