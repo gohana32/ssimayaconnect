@@ -1095,7 +1095,7 @@ export default function EventDetailsPage() {
             `}
           >
             {canBook
-              ? 'Book Tickets'
+              ? 'Book Your Slots'
               : 'Booking Closed'}
           </Link>
 
