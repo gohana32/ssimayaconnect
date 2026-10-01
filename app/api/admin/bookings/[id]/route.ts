@@ -1,5 +1,7 @@
+import { BookingError, lockBookingEvent, contactConflict, deleteBooking } from '@/lib/bookings/mutations';
+import { emitRealtimeChange } from '@/lib/realtime';
 import { getEventStatus } from '@/lib/events/status';
-import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from '@/lib/phone';
+import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone, phoneIdentity } from '@/lib/phone';
 import {
   NextRequest,
   NextResponse,
@@ -22,9 +24,7 @@ import {
   Booking,
 } from '@/models/Booking';
 
-import {
-  Slot,
-} from '@/models/Slot';
+import '@/models/Slot';
 
 import { Feedback } from '@/models/Feedback';
 
@@ -326,22 +326,6 @@ export async function PATCH(
       );
     }
 
-    if (
-      !isValidPhone(details.mobile, details.countryCode)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            'Enter a valid mobile number.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
     await connectDB();
 
     const booking =
@@ -363,16 +347,23 @@ export async function PATCH(
       );
     }
 
-    details.email = normalizeEmail(details.email);
-    details.mobile = (details.mobile.trim().startsWith('+') ? '+' : '') + normalizePhone(details.mobile);
-
-    booking.details = {
-      ...(booking.details ||
-        {}),
-      ...details,
-    };
-
-    await booking.save();
+    await mongoose.connection.transaction(async session => {
+      await lockBookingEvent(String(booking.eventId), session);
+      const current = await Booking.findById(id).session(session);
+      if (!current) throw new BookingError(404, 'Booking not found.');
+      const merged = { ...current.details, ...details };
+      if (!isValidPhone(merged.mobile, merged.countryCode)) throw new BookingError(400, 'Enter a valid full mobile number.');
+      merged.email = normalizeEmail(merged.email);
+      merged.mobile = (merged.mobile.trim().startsWith('+') ? '+' : '') + normalizePhone(merged.mobile);
+      const contactChanged = merged.email !== normalizeEmail(current.details.email)
+        || phoneIdentity(merged.mobile, merged.countryCode) !== phoneIdentity(current.details.mobile, current.details.countryCode);
+      if (contactChanged && await contactConflict(String(current.eventId), merged, session, id)) {
+        throw new BookingError(409, 'Another booking for this event uses that email or mobile number.');
+      }
+      current.details = merged;
+      await current.save({ session });
+    });
+    emitRealtimeChange({ resource: 'bookings', action: 'updated', id: String(booking.eventId) });
 
     await logAdminActivity({
       action: 'update',
@@ -437,10 +428,10 @@ export async function PATCH(
         success: false,
 
         message:
-          'Unable to update booking.',
+          error instanceof BookingError ? error.message : 'Unable to update booking.',
       },
       {
-        status: 500,
+        status: error instanceof BookingError ? error.status : 500,
       },
     );
   }
@@ -506,68 +497,10 @@ export async function DELETE(
 
     await connectDB();
 
-    const booking =
-      await Booking.findById(
-        id,
-      );
-
-    if (!booking) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            'Booking not found.',
-        },
-        {
-          status: 404,
-        },
-      );
-    }
-
-    const slotId =
-      booking.slotId;
-
-    await Booking.deleteOne({
-      _id:
-        booking._id,
-    });
-
-    await logAdminActivity({
-      action: 'delete',
-      resource: 'booking',
-      resourceId: booking._id.toString(),
-      details: { bookingId: booking.bookingId },
-    });
-
-    /*
-     * Return one capacity unit
-     * to the slot.
-     */
-    if (
-      slotId &&
-      mongoose.Types.ObjectId.isValid(
-        String(
-          slotId,
-        ),
-      )
-    ) {
-      await Slot.updateOne(
-        {
-          _id:
-            slotId,
-
-          bookedCount: {
-            $gt: 0,
-          },
-        },
-        {
-          $inc: {
-            bookedCount:
-              -1,
-          },
-        },
-      );
+    const booking = await deleteBooking(id);
+    if (booking) {
+      emitRealtimeChange({ resource: 'bookings', action: 'deleted', id: String(booking.eventId) });
+      await logAdminActivity({ action: 'delete', resource: 'booking', resourceId: String(booking._id), details: { bookingId: booking.bookingId } });
     }
 
     return NextResponse.json(

@@ -42,6 +42,7 @@ export interface IEvent
   endDate: Date;
 
   timeZone: string;
+  bookingRevision: number;
 
   status: EventStatus;
 
@@ -120,6 +121,7 @@ const EventSchema =
         default: DEFAULT_TIME_ZONE,
         validate: { validator: isTimeZone, message: 'Invalid event timezone.' },
       },
+      bookingRevision: { type: Number, default: 0 },
 
       status: {
         type: String,

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { after, before, test } from 'node:test';
 import { ObjectId, type Db, type MongoClient } from 'mongodb';
 import { api, createTestAdmin, testDatabase } from '../helpers/test-app';
@@ -81,17 +82,17 @@ test('booking and ticket lookup preserve a short international number and reject
   const slot = await db.collection('slots').findOne({ eventId });
   assert.ok(slot);
   const response = await api('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-    eventId, slotId: slot._id, dayScheduleId: slot.dayScheduleId,
+    eventId, slotId: slot._id, dayScheduleId: slot.dayScheduleId, idempotencyKey: randomUUID(),
     details: { fullName: 'Test Attendee', email: 'TEST@EXAMPLE.COM', mobile: '1234567', countryCode: '+354' },
   }) });
   const result = await response.json();
   assert.equal(response.status, 201, JSON.stringify(result));
-  const tickets = await (await api('/api/events/mytickets?email=test%40example.com&mobile=%2B3541234567')).json();
+  const recover = (mobile: string) => api('/api/events/mytickets', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bookingId: result.booking.bookingId, mobile }) });
+  const tickets = await (await recover('+3541234567')).json();
   assert.equal(tickets.tickets.length, 1);
-  const suffix = await (await api('/api/events/mytickets?email=test%40example.com&mobile=1234567')).json();
-  assert.equal(suffix.tickets.length, 0);
-  const wrongCountry = await (await api('/api/events/mytickets?email=test%40example.com&mobile=%2B911234567')).json();
-  assert.equal(wrongCountry.tickets.length, 0);
+  assert.equal((await recover('1234567')).status, 404);
+  assert.equal((await recover('+911234567')).status, 404);
   const bookingList = await (await api(`/api/admin/bookings?eventId=${eventId}`, { headers: { Cookie: cookie } })).json();
   assert.equal(bookingList.bookings[0].event.status, 'UPCOMING');
   const booking = await db.collection('bookings').findOne({ eventId });

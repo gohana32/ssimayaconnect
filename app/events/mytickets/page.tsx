@@ -10,6 +10,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -122,321 +123,103 @@ const EASE = [
 export default function MyTicketsPage() {
 
 
-  const [
-    mobile,
-    setMobile,
-  ] =
-    useState('');
+  const [mobile, setMobile] = useState('');
+  const [reference, setReference] = useState('');
+  const [savedMobile, setSavedMobile] = useState('');
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const lookupRef = useRef<{ mobile: string; bookingId: string } | null>(null);
+  const pendingRef = useRef<AbortController | null>(null);
+  const requestVersion = useRef(0);
 
-
-
-  const [email, setEmail] = useState('');
-
-  const [
-    savedMobile,
-    setSavedMobile,
-  ] =
-    useState('');
-
-
-
-  const [
-    tickets,
-    setTickets,
-  ] =
-    useState<Ticket[]>(
-      [],
-    );
-
-
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(false);
-
-
-
-  const [
-    error,
-    setError,
-  ] =
-    useState('');
-
-
-
-  const [
-    selectedTicket,
-    setSelectedTicket,
-  ] =
-    useState<Ticket | null>(
-      null,
-    );
-
-
-
-  const [
-    loaded,
-    setLoaded,
-  ] =
-    useState(false);
-
-  const loadedMobileRef =
-    useRef('');
-
-
-
-
-  /* ==========================================================
-     LOAD CACHE
-  ========================================================== */
-
-
-  useEffect(() => {
-
-
-    const cachedMobile =
-      sessionStorage.getItem(
-        CACHE_KEY,
-      );
-
-
-    const cachedTickets =
-      sessionStorage.getItem(
-        TICKET_CACHE,
-      );
-
-
-
-    const cachedEmail =
-      sessionStorage.getItem(
-        EMAIL_CACHE_KEY,
-      );
-
-    if (
-      cachedMobile &&
-      cachedEmail
-    ) {
-
-      window.setTimeout(() => {
-        setMobile(
-          cachedMobile,
-        );
-
-        setEmail(
-          cachedEmail,
-        );
-
-        setSavedMobile(
-          cachedMobile,
-        );
-      }, 0);
-
+  const loadTickets = useCallback(async (value: string, bookingReference: string, recover = true) => {
+    const bookingId = bookingReference.trim().toUpperCase();
+    const clean = normalizePhone(value);
+    if (!bookingId || !isValidPhone(value)) {
+      setError('Enter your booking reference and full mobile number, including country code.');
+      return;
     }
-
-
-
-    if (
-      cachedTickets
-    ) {
-
+    pendingRef.current?.abort();
+    const controller = new AbortController();
+    pendingRef.current = controller;
+    const version = ++requestVersion.current;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(recover ? '/api/events/mytickets' : `/api/events/mytickets?bookingId=${encodeURIComponent(bookingId)}`, {
+        method: recover ? 'POST' : 'GET', cache: 'no-store', signal: controller.signal,
+        ...(recover ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId, mobile: clean }) } : {}),
+      });
+      const data = await response.json();
+      if (version !== requestVersion.current || controller.signal.aborted) return;
+      if (!response.ok || !data.success) throw new Error(data.message || 'Unable to load your ticket. Please retry.');
+      setTickets(data.tickets);
+      setSelectedTicket(current => current ? data.tickets.find((ticket: Ticket) => ticket.bookingId === current.bookingId) || null : null);
+      setSavedMobile(clean);
+      setMobile(clean);
+      setReference(bookingId);
+      lookupRef.current = { mobile: clean, bookingId };
+      setLoaded(true);
       try {
-
-        const parsed =
-          JSON.parse(
-            cachedTickets,
-          );
-
-        window.setTimeout(() => {
-          setTickets(parsed);
-
-          setLoaded(
-            true,
-          );
-        }, 0);
-
-      } catch {}
-
+        sessionStorage.setItem(CACHE_KEY, clean);
+        sessionStorage.setItem(ticketStorage.reference, bookingId);
+        sessionStorage.removeItem(EMAIL_CACHE_KEY);
+        sessionStorage.setItem(TICKET_CACHE, JSON.stringify(data.tickets));
+      } catch { /* Storage is optional; the server response remains authoritative. */ }
+    } catch (error) {
+      if (version !== requestVersion.current || controller.signal.aborted) return;
+      setError(error instanceof Error ? error.message : 'Unable to load your ticket. Please retry.');
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
     }
-
-
   }, []);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const cachedMobile = sessionStorage.getItem(CACHE_KEY);
+        const cachedReference = sessionStorage.getItem(ticketStorage.reference);
+        if (cachedMobile && cachedReference) void loadTickets(cachedMobile, cachedReference, false);
+        else {
+          sessionStorage.removeItem(TICKET_CACHE);
+          sessionStorage.removeItem(EMAIL_CACHE_KEY);
+        }
+      } catch { /* Start with an empty lookup when browser storage is unavailable. */ }
+    }, 0);
+    return () => { window.clearTimeout(timer); pendingRef.current?.abort(); };
+  }, [loadTickets]);
 
+  function refreshTickets() {
+    const identity = lookupRef.current;
+    if (identity) void loadTickets(identity.mobile, identity.bookingId, false);
+  }
+  useRealtimeRefresh('attendance', refreshTickets);
+  useRealtimeRefresh('bookings', refreshTickets);
 
-
-  /* ==========================================================
-     FETCH
-  ========================================================== */
-
-
-  async function loadTickets(
-    value =
-      mobile,
-    mail =
-      email,
-  ) {
-    const cleanEmail = mail.trim().toLowerCase();
-
-
-
-    const clean = normalizePhone(value);
-    if (!isValidPhone(value)) {
-      setError(
-        'Enter a valid mobile number.',
-      );
-
-      return;
-
+  function resetTickets() {
+    requestVersion.current++;
+    pendingRef.current?.abort();
+    pendingRef.current = null;
+    lookupRef.current = null;
+    setMobile(''); setReference(''); setSavedMobile(''); setTickets([]);
+    setSelectedTicket(null); setLoaded(false); setLoading(false); setError('');
+    for (const key of [CACHE_KEY, EMAIL_CACHE_KEY, TICKET_CACHE, ticketStorage.reference]) {
+      try { sessionStorage.removeItem(key); } catch { /* Nothing can be restored without a successful server lookup. */ }
     }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cleanEmail)) {
-      setError('Enter the email address used for booking.');
-      return;
-    }
-
-
-
-    setLoading(
-      true,
-    );
-
-    setError('');
-
-
-
-    try {
-
-
-      const response =
-        await fetch(
-          `/api/events/mytickets?mobile=${clean}&email=${encodeURIComponent(cleanEmail)}`,
-          {
-            cache:
-              'no-store',
-          },
-        );
-
-
-
-      const data =
-        await response.json();
-
-
-
-      if (
-        !response.ok ||
-        !data.success
-      ) {
-
-        throw new Error(
-          data.message ||
-          'Unable to load tickets.',
-        );
-
-      }
-
-      setTickets(
-        data.tickets,
-      );
-
-
-
-      sessionStorage.setItem(
-        CACHE_KEY,
-        clean,
-      );
-
-      sessionStorage.setItem(
-        EMAIL_CACHE_KEY,
-        cleanEmail,
-      );
-
-
-      sessionStorage.setItem(
-        TICKET_CACHE,
-        JSON.stringify(
-          data.tickets,
-        ),
-      );
-
-
-
-      setSavedMobile(
-        clean,
-      );
-
-      loadedMobileRef.current =
-        clean;
-
-
-      setLoaded(
-        true,
-      );
-
-
-    } catch (
-      err
-    ) {
-
-
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to load tickets.',
-      );
-
-
-    } finally {
-
-
-      setLoading(
-        false,
-      );
-
-    }
-
   }
 
-  useRealtimeRefresh(
-    'attendance',
-    () => {
-      if (loadedMobileRef.current) {
-        void loadTickets(
-          loadedMobileRef.current,
-          sessionStorage.getItem(EMAIL_CACHE_KEY) || '',
-        );
-      }
-    },
-  );
-
-
-
-
-  useEffect(() => {
-
-
-    if (
-      savedMobile &&
-      loadedMobileRef.current !==
-        savedMobile
-    ) {
-
-      void loadTickets(
-        savedMobile,
-        sessionStorage.getItem(EMAIL_CACHE_KEY) || '',
-      );
-
-    }
-
-
-  }, [
-    savedMobile,
-  ]);
-
-
-
+  function changeLookup(field: 'mobile' | 'reference', value: string) {
+    requestVersion.current++;
+    pendingRef.current?.abort();
+    pendingRef.current = null;
+    setLoading(false);
+    setError('');
+    if (field === 'mobile') setMobile(value);
+    else setReference(value);
+  }
 
   /* ==========================================================
      UI
@@ -719,22 +502,10 @@ export default function MyTicketsPage() {
             Access your registered event tickets.
           </p>
 
-          {savedMobile && (
+          {(savedMobile || loading) && (
             <button
               type="button"
-              onClick={() => {
-                setSavedMobile('');
-                setMobile('');
-                setTickets([]);
-                setLoaded(false);
-                setError('');
-                sessionStorage.removeItem(
-                  CACHE_KEY,
-                );
-                sessionStorage.removeItem(
-                  TICKET_CACHE,
-                );
-              }}
+              onClick={resetTickets}
               className="
                 mt-3
                 text-[11px]
@@ -743,7 +514,7 @@ export default function MyTicketsPage() {
                 hover:text-primary-dark
               "
             >
-              Use a different mobile number
+              Look up another ticket
             </button>
           )}
 
@@ -783,6 +554,7 @@ export default function MyTicketsPage() {
           >
 
             <label
+              htmlFor="ticket-mobile"
               className="
                 text-[11px]
 
@@ -796,13 +568,14 @@ export default function MyTicketsPage() {
 
 
             <input
+              id="ticket-mobile"
               value={
                 mobile
               }
 
               onChange={
                 e =>
-                  setMobile(
+                  changeLookup('mobile',
                     e.target.value,
                   )
               }
@@ -835,25 +608,29 @@ export default function MyTicketsPage() {
 
 
 
-            <label className="mt-3 block text-[11px] font-semibold text-secondary">
-              Registered email address
+            <label htmlFor="ticket-reference" className="mt-3 block text-[11px] font-semibold text-secondary">
+              Booking reference
             </label>
 
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              id="ticket-reference"
+              type="text"
+              value={reference}
+              onChange={(e) => changeLookup('reference', e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') void loadTickets();
+                if (e.key === 'Enter') void loadTickets(mobile, reference);
               }}
-              placeholder="Enter email used for booking"
-              autoComplete="email"
+              placeholder="e.g. SSI-MC-2026-12345"
+              autoComplete="off"
               className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-[13px] outline-none focus:border-primary/40"
             />
 
+            <p className="mt-3 text-xs text-gray-500">Lost your booking reference? Ask staff at the event registration desk to help locate it. No email or OTP is needed.</p>
+
             <button
+              disabled={loading}
               onClick={() =>
-                void loadTickets()
+                void loadTickets(mobile, reference)
               }
 
               className="
@@ -975,7 +752,7 @@ export default function MyTicketsPage() {
                   text-gray-500
                 "
               >
-                No booking exists for this mobile number.
+                No ticket matches this booking reference and mobile number.
               </p>
 
 

@@ -12,6 +12,20 @@ export type ServerBooking = {
   id: string;
   bookingId: string;
   eventId: string;
+  eventName: string;
+  venue: string;
+  imageUrl: string;
+  timeZone: string;
+  dayScheduleId: string;
+  slotId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  details: BookingDetails;
+  status: 'ACTIVE' | 'EXPIRED' | 'ATTENDED';
+  qrData: string;
+  checkedInBy: string;
+  checkInMethod: string;
   attendanceStatus: AttendanceStatus;
   checkedInAt: string | null;
 };
@@ -27,6 +41,7 @@ export type BookingApiResponse = {
 export const ticketStorage = {
   mobile: 'ssi-my-tickets-mobile',
   email: 'ssi-my-tickets-email',
+  reference: 'ssi-my-tickets-reference',
   tickets: 'ssi-my-tickets-data',
   events: 'ssi-events-cache',
 } as const;
@@ -34,4 +49,5 @@ export const ticketStorage = {
 export const bookingStorage = {
   details: (eventId: string) => `ssi-booking-details:${eventId}`,
   draft: (eventId: string) => `ssi-booking-draft:${eventId}`,
+  intent: (eventId: string) => `ssi-booking-intent:${eventId}`,
 };
