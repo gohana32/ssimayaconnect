@@ -1,5 +1,9 @@
 'use client';
 
+import { type BookingDetails as SharedBookingDetails, type AttendanceStatus, type ServerBooking, type BookingApiResponse, bookingStorage } from '@/lib/booking-contracts';
+
+import { calendarDateFormatter, eventTimeZone } from '@/lib/events/dates';
+
 import {
   useCallback,
   useEffect,
@@ -34,44 +38,10 @@ import {
    TYPES
 ============================================================ */
 
-type BookingDetails = {
-  eventId?: string;
-
-  eventName?: string;
-
-  template?: string;
-
-  designation?: string;
-
-  title?: string;
-
-  fullName?: string;
-
-  specialty?: string;
-
-  mobile?: string;
-
-  countryCode?: string;
-
-  phoneCountry?: string;
-
-  email?: string;
-
-  hospitalName?: string;
-
-  country?: string;
-
-  countryIso2?: string;
-
-  state?: string;
-
-  city?: string;
-
-  [key: string]:
-    string | undefined;
-};
+type BookingDetails = Partial<SharedBookingDetails>;
 
 type SlotSelection = {
+  timeZone?: string;
   eventId?: string;
 
   dayScheduleId?: string;
@@ -85,42 +55,13 @@ type SlotSelection = {
   endTime?: string;
 };
 
-type AttendanceStatus =
-  | 'NOT_PRESENT'
-  | 'PRESENT';
+
 
 type BookingState =
   | 'loading'
   | 'creating'
   | 'ready'
   | 'error';
-
-type ServerBooking = {
-  id: string;
-
-  bookingId: string;
-
-  eventId: string;
-
-  attendanceStatus:
-    AttendanceStatus;
-
-  checkedInAt:
-    string | null;
-};
-
-type BookingApiResponse = {
-  success?: boolean;
-
-  existing?: boolean;
-
-  error?: string;
-
-  message?: string;
-
-  booking?:
-    ServerBooking;
-};
 
 /* ============================================================
    CONSTANTS
@@ -329,7 +270,7 @@ export default function BookingConfirmationPage() {
     try {
       const detailsRaw =
         sessionStorage.getItem(
-          `ssi-booking-details:${eventId}`,
+          bookingStorage.details(eventId),
         );
 
       const slotRaw =
@@ -1020,7 +961,7 @@ export default function BookingConfirmationPage() {
         return slotSelection.date;
       }
 
-      return new Intl.DateTimeFormat(
+      return calendarDateFormatter(
         'en-GB',
         {
           weekday:
@@ -1059,7 +1000,7 @@ export default function BookingConfirmationPage() {
         return '—';
       }
 
-      return `${start} – ${end}`;
+      return `${start} – ${end} (${eventTimeZone(slotSelection?.timeZone)})`;
     }, [
       slotSelection,
     ]);

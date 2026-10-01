@@ -1,5 +1,9 @@
 'use client';
 
+import { ticketStorage } from '@/lib/booking-contracts';
+
+import { calendarDateFormatter } from '@/lib/events/dates';
+
 import type {
   ReactNode,
 } from 'react';
@@ -94,7 +98,7 @@ const EASE = [
 ] as const;
 
 const TICKET_CACHE =
-  'ssi-my-tickets-data';
+  ticketStorage.tickets;
 
 /* ============================================================
    PAGE
@@ -247,7 +251,7 @@ export default function EventsPage() {
 
           try {
             window.sessionStorage.setItem(
-              'ssi-events-cache',
+              ticketStorage.events,
               JSON.stringify(
                 Array.isArray(
                   data.events,
@@ -293,7 +297,7 @@ export default function EventsPage() {
     try {
       const cached =
         window.sessionStorage.getItem(
-          'ssi-events-cache',
+          ticketStorage.events,
         );
 
       if (cached) {
@@ -4399,7 +4403,7 @@ function formatDate(
     return '';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-GB',
     {
       day:
@@ -4454,7 +4458,7 @@ function formatDateRange(
   }
 
   const startLabel =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day:
@@ -4468,7 +4472,7 @@ function formatDateRange(
     );
 
   const endLabel =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day:

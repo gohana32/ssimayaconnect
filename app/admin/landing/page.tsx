@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDateFormatter } from '@/lib/events/dates';
+
 import type {
   ReactNode,
 } from 'react';
@@ -2587,7 +2589,7 @@ function formatShortDate(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-GB',
     {
       day:
@@ -2634,7 +2636,7 @@ function formatEventDates(
   }
 
   if (!end) {
-    return new Intl.DateTimeFormat(
+    return calendarDateFormatter(
       'en-GB',
       {
         day:
@@ -2667,14 +2669,14 @@ function formatEventDates(
   }
 
   const sameMonth =
-    startDate.getMonth() ===
-      endDate.getMonth() &&
-    startDate.getFullYear() ===
-      endDate.getFullYear();
+    startDate.getUTCMonth() ===
+      endDate.getUTCMonth() &&
+    startDate.getUTCFullYear() ===
+      endDate.getUTCFullYear();
 
   if (sameMonth) {
     const monthYear =
-      new Intl.DateTimeFormat(
+      calendarDateFormatter(
         'en-GB',
         {
           month:
@@ -2687,11 +2689,11 @@ function formatEventDates(
         startDate,
       );
 
-    return `${startDate.getDate()}-${endDate.getDate()} ${monthYear}`;
+    return `${startDate.getUTCDate()}-${endDate.getUTCDate()} ${monthYear}`;
   }
 
   const first =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day:
@@ -2705,7 +2707,7 @@ function formatEventDates(
     );
 
   const second =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day:

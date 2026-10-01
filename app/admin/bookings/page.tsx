@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDateFormatter, todayCalendarDate, eventTimeZone } from '@/lib/events/dates';
+
 import type {
   FormEvent,
   ReactNode,
@@ -39,6 +41,7 @@ type BookingRow = {
   };
 
   event: {
+    timeZone?: string;
     _id: string;
     eventName: string;
     venue: string;
@@ -1521,7 +1524,7 @@ export default function AdminBookingsPage() {
                         >
                           {
                             formatSlot(
-                              booking.slot,
+                              booking.slot, booking.event?.timeZone,
                             )
                           }
                         </td>
@@ -1885,7 +1888,7 @@ export default function AdminBookingsPage() {
                         label="Time Slot"
                         value={
                           formatSlot(
-                            booking.slot,
+                            booking.slot, booking.event?.timeZone,
                           )
                         }
                       />
@@ -2506,7 +2509,7 @@ function BookingStatus({
   const upcoming =
     date
       ? date.getTime() >=
-        startOfToday()
+        startOfToday(booking.event?.timeZone)
       : true;
 
   return (
@@ -3323,7 +3326,7 @@ function formatDate(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-GB',
     {
       day:
@@ -3341,6 +3344,7 @@ function formatDate(
 function formatSlot(
   slot:
     BookingRow['slot'],
+  timeZone?: string,
 ) {
   if (
     !slot?.startTime ||
@@ -3349,22 +3353,10 @@ function formatSlot(
     return '—';
   }
 
-  return `${slot.startTime} - ${slot.endTime}`;
+  return `${slot.startTime} - ${slot.endTime} (${eventTimeZone(timeZone)})`;
 }
 
-function startOfToday() {
-  const date =
-    new Date();
-
-  date.setHours(
-    0,
-    0,
-    0,
-    0,
-  );
-
-  return date.getTime();
-}
+function startOfToday(timeZone?: string) { return todayCalendarDate(new Date(), timeZone).getTime(); }
 
 /* ============================================================
    ICONS

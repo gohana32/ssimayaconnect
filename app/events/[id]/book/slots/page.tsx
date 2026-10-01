@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDateFormatter, eventTimeZone } from '@/lib/events/dates';
+
 import Image from 'next/image';
 
 import {
@@ -57,6 +59,7 @@ type EventDay = {
 };
 
 type SlotEvent = {
+  timeZone?: string;
   _id: string;
 
   eventName: string;
@@ -426,6 +429,7 @@ export default function TimeSlotsPage() {
     sessionStorage.setItem(
       slotStorageKey,
       JSON.stringify({
+        timeZone: eventTimeZone(event?.timeZone),
         eventId,
 
         dayScheduleId:
@@ -448,6 +452,7 @@ export default function TimeSlotsPage() {
     sessionStorage.setItem(
       `ssi-booking-slot:${eventId}:latest`,
       JSON.stringify({
+        timeZone: eventTimeZone(event?.timeZone),
         eventId,
 
         dayScheduleId:
@@ -917,6 +922,7 @@ export default function TimeSlotsPage() {
                 >
                   {event.eventName}
                 </h1>
+                <p className="mt-1 text-xs text-gray-500">All event times: {eventTimeZone(event.timeZone)}</p>
 
                 <div
                   className="
@@ -1221,7 +1227,7 @@ export default function TimeSlotsPage() {
                               }
                             `}
                           >
-                            {new Intl.DateTimeFormat(
+                            {calendarDateFormatter(
                               'en-IN',
                               {
                                 weekday:
@@ -1243,7 +1249,7 @@ export default function TimeSlotsPage() {
                               leading-none
                             "
                           >
-                            {new Intl.DateTimeFormat(
+                            {calendarDateFormatter(
                               'en-IN',
                               {
                                 day:
@@ -1269,7 +1275,7 @@ export default function TimeSlotsPage() {
                               }
                             `}
                           >
-                            {new Intl.DateTimeFormat(
+                            {calendarDateFormatter(
                               'en-IN',
                               {
                                 month:
@@ -2704,7 +2710,7 @@ function SimpleHeader({
 function formatSelectedDate(
   value: string,
 ) {
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-IN',
     {
       weekday:

@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDateFormatter, eventTimeZone, formatSlotTime } from '@/lib/events/dates';
+
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -53,6 +55,7 @@ interface DaySchedule {
 }
 
 interface EventDetails {
+  timeZone?: string;
   _id: string;
 
   eventName: string;
@@ -870,6 +873,7 @@ export default function EventDetailsPage() {
                 >
                   {event.eventName}
                 </h1>
+                <p className="mt-1 text-xs text-gray-500">All event times: {eventTimeZone(event.timeZone)}</p>
 
                 <p
                   className="
@@ -1737,7 +1741,7 @@ function formatDateRange(
     start.toDateString() ===
     end.toDateString()
   ) {
-    return new Intl.DateTimeFormat(
+    return calendarDateFormatter(
       'en-GB',
       {
         day: '2-digit',
@@ -1750,7 +1754,7 @@ function formatDateRange(
   }
 
   const startLabel =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day: '2-digit',
@@ -1761,7 +1765,7 @@ function formatDateRange(
     );
 
   const endLabel =
-    new Intl.DateTimeFormat(
+    calendarDateFormatter(
       'en-GB',
       {
         day: '2-digit',
@@ -1788,36 +1792,4 @@ function formatTimeRange(
 
 function formatTime(
   value: string,
-) {
-  if (!value) {
-    return '';
-  }
-
-  const [
-    hour,
-    minute,
-  ] =
-    value.split(':');
-
-  const date =
-    new Date();
-
-  date.setHours(
-    Number(hour),
-    Number(minute),
-    0,
-    0,
-  );
-
-  return new Intl.DateTimeFormat(
-    'en-US',
-    {
-      hour: 'numeric',
-      minute:
-        '2-digit',
-      hour12: true,
-    },
-  ).format(
-    date,
-  );
-}
+) { return value ? formatSlotTime(value) : ""; }

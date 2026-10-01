@@ -1,3 +1,4 @@
+import { liveEventFilter } from '@/lib/events/date-queries';
 import mongoose from 'mongoose';
 
 import {
@@ -42,20 +43,6 @@ type AttendanceQrPayload = {
   eventName?: string;
 };
 
-/*
- * Event.status is only written at creation, so it goes stale.
- * Match LIVE by date (same UTC-day rule as getEventStatus).
- */
-function liveDateFilter() {
-  const now = new Date();
-  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  return {
-    startDate: { $lt: tomorrowStart },
-    endDate: { $gte: todayStart },
-  };
-}
-
 /* ============================================================
    GET
 ============================================================ */
@@ -95,7 +82,7 @@ export async function GET(
 
     const liveEvents =
       await Event.find({
-        ...liveDateFilter(),
+        ...liveEventFilter(),
       })
         .select({
           _id: 1,
@@ -103,6 +90,7 @@ export async function GET(
           venue: 1,
           startDate: 1,
           endDate: 1,
+          timeZone: 1,
         })
         .sort({
           startDate:
@@ -131,6 +119,7 @@ export async function GET(
 
           endDate:
             event.endDate,
+          timeZone: event.timeZone,
         }),
       );
 
@@ -197,7 +186,7 @@ export async function GET(
         _id:
           eventId,
 
-        ...liveDateFilter(),
+        ...liveEventFilter(),
       })
         .select(
           '_id eventName',
@@ -453,7 +442,7 @@ export async function POST(
         _id:
           eventId,
 
-        ...liveDateFilter(),
+        ...liveEventFilter(),
       })
         .select({
           _id: 1,

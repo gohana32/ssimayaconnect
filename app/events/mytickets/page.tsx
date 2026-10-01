@@ -1,5 +1,10 @@
 'use client';
 
+import { eventTimeZone } from '@/lib/events/dates';
+import { ticketStorage } from '@/lib/booking-contracts';
+
+import { isValidPhone, normalizePhone } from '@/lib/phone';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -34,6 +39,7 @@ type TicketStatus =
 
 
 interface Ticket {
+  timeZone?: string;
 
   bookingId:
     string;
@@ -91,13 +97,13 @@ interface Ticket {
 ============================================================ */
 
 const CACHE_KEY =
-  'ssi-my-tickets-mobile';
+  ticketStorage.mobile;
 
 const EMAIL_CACHE_KEY =
-  'ssi-my-tickets-email';
+  ticketStorage.email;
 
 const TICKET_CACHE =
-  'ssi-my-tickets-data';
+  ticketStorage.tickets;
 
 
 const EASE = [
@@ -275,22 +281,8 @@ export default function MyTicketsPage() {
 
 
 
-    const clean =
-      value.replace(
-        /\D/g,
-        '',
-      )
-      .slice(
-        -10,
-      );
-
-
-
-    if (
-      clean.length !==
-      10
-    ) {
-
+    const clean = normalizePhone(value);
+    if (!isValidPhone(value)) {
       setError(
         'Enter a valid mobile number.',
       );
@@ -815,7 +807,7 @@ export default function MyTicketsPage() {
                   )
               }
 
-              placeholder="Enter mobile number"
+              placeholder="Full number with country code, e.g. +91 98765 43210"
 
               inputMode="tel"
 
@@ -1372,7 +1364,7 @@ function TicketCard({
 
           {
             ticket.endTime
-          }
+          } {eventTimeZone(ticket.timeZone)}
 
         </p>
 

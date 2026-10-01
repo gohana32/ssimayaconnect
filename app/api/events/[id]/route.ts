@@ -1,3 +1,4 @@
+import { eventTimeZone } from '@/lib/events/dates';
 import {
   NextRequest,
   NextResponse,
@@ -19,7 +20,7 @@ import {
   generateSlotTimes,
 } from '@/lib/events/slots';
 import {
-  validateSchedule,
+  validateEventSchedules,
 } from '@/lib/events/schedule-validation';
 
 import { Event } from '@/models/Event';
@@ -204,6 +205,7 @@ export async function GET(
       getEventStatus(
         event.startDate,
         event.endDate,
+        new Date(), event.timeZone,
       );
 
     return NextResponse.json(
@@ -246,6 +248,7 @@ export async function GET(
 
           endDate:
             event.endDate,
+          timeZone: eventTimeZone(event.timeZone),
 
           status,
 
@@ -407,6 +410,8 @@ export async function PUT(
 
     const formData =
       await req.formData();
+
+    const timeZone = String(formData.get('timeZone') || existingEvent.timeZone || eventTimeZone());
 
     const eventName =
       String(
@@ -610,50 +615,9 @@ export async function PUT(
       );
     }
 
-    if (
-      !Array.isArray(
-        daySchedulesInput,
-      ) ||
-      daySchedulesInput.length !==
-        numberOfDays
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Day schedule count does not match the number of event days.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    for (
-      let index = 0;
-      index <
-      daySchedulesInput.length;
-      index += 1
-    ) {
-      const error =
-        validateSchedule(
-          daySchedulesInput[
-            index
-          ],
-          index,
-        );
-
-      if (error) {
-        return NextResponse.json(
-          {
-            success: false,
-            error,
-          },
-          {
-            status: 400,
-          },
-        );
-      }
+    const scheduleError = validateEventSchedules(startDateValue, endDateValue, numberOfDays, daySchedulesInput, timeZone);
+    if (scheduleError) {
+      return NextResponse.json({ success: false, error: scheduleError }, { status: 400 });
     }
 
     const existingSchedules =
@@ -669,6 +633,10 @@ export async function PUT(
         eventId:
           existingEvent._id,
       });
+
+    if (timeZone !== eventTimeZone(existingEvent.timeZone) && existingSlots.some(slot => slot.bookedCount > 0)) {
+      return NextResponse.json({ success: false, error: 'The timezone cannot change while this event has bookings.' }, { status: 409 });
+    }
 
     const schedulesByDay =
       new Map(
@@ -904,11 +872,13 @@ export async function PUT(
             startDate,
 
             endDate,
+            timeZone,
 
             status:
               getEventStatus(
                 startDate,
                 endDate,
+                new Date(), timeZone,
               ),
           },
         },

@@ -1,5 +1,9 @@
 'use client';
 
+import { bookingStorage } from '@/lib/booking-contracts';
+
+import { isValidPhone, normalizePhone } from '@/lib/phone';
+
 import Image from 'next/image';
 
 import {
@@ -107,7 +111,7 @@ function getCachedBookingDraft(
   try {
     const raw =
       window.sessionStorage.getItem(
-        `ssi-booking-details:${eventId}`,
+        bookingStorage.details(eventId),
       );
 
     if (raw) {
@@ -125,7 +129,7 @@ function getCachedBookingDraft(
 
     const draftRaw =
       window.sessionStorage.getItem(
-        `ssi-booking-draft:${eventId}`,
+        bookingStorage.draft(eventId),
       );
 
     if (!draftRaw) {
@@ -166,7 +170,7 @@ export default function MantramTemplate({
     );
 
   useFormDraft(
-    `ssi-booking-draft:${eventId}`,
+    bookingStorage.draft(eventId),
     formRef,
   );
 
@@ -700,15 +704,10 @@ export default function MantramTemplate({
     const data =
       new FormData(form);
 
-    const mobile =
-      String(
-        data.get('mobile') || '',
-      ).replace(/\D/g, '');
+    const rawMobile = String(data.get('mobile') || '');
+    const mobile = rawMobile.trim().startsWith('+') ? '+' + normalizePhone(rawMobile) : normalizePhone(rawMobile);
 
-    if (
-      mobile.length < 4 ||
-      mobile.length > 14
-    ) {
+    if (!isValidPhone(rawMobile, selectedPhoneCountry.callingCode)) {
       setFormError(
         'Please enter a valid mobile number.',
       );
@@ -811,7 +810,7 @@ export default function MantramTemplate({
       };
 
       sessionStorage.setItem(
-        `ssi-booking-details:${eventId}`,
+        bookingStorage.details(eventId),
         JSON.stringify(
           bookingDetails,
         ),
@@ -1194,8 +1193,8 @@ export default function MantramTemplate({
                   required
                   inputMode="tel"
                   autoComplete="tel-national"
-                  maxLength={14}
-                  placeholder="10-digit mobile number"
+                  maxLength={24}
+                  placeholder="Mobile number"
                   className={
                     inputClass
                   }
@@ -1204,7 +1203,7 @@ export default function MantramTemplate({
                   ) => {
                     event.currentTarget.value =
                       event.currentTarget.value.replace(
-                        /[^\d\s-]/g,
+                        /[^\d\s()+-]/g,
                         '',
                       );
                   }}

@@ -1,5 +1,7 @@
 'use client';
 
+import { eventDateFormatter } from '@/lib/events/dates';
+
 import type {
   FormEvent,
 } from 'react';
@@ -3445,7 +3447,7 @@ function formatTime(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return eventDateFormatter(
     'en-IN',
     {
       hour:

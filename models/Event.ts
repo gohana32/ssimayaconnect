@@ -3,6 +3,7 @@ import mongoose, {
   Document,
   Model,
 } from 'mongoose';
+import { DEFAULT_TIME_ZONE, isTimeZone } from '@/lib/events/dates';
 
 export type EventType =
   | 'conference'
@@ -39,6 +40,8 @@ export interface IEvent
   startDate: Date;
 
   endDate: Date;
+
+  timeZone: string;
 
   status: EventStatus;
 
@@ -110,6 +113,12 @@ const EventSchema =
       endDate: {
         type: Date,
         required: true,
+      },
+
+      timeZone: {
+        type: String,
+        default: DEFAULT_TIME_ZONE,
+        validate: { validator: isTimeZone, message: 'Invalid event timezone.' },
       },
 
       status: {

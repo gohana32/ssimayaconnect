@@ -1,3 +1,5 @@
+import { zonedDate, eventTimeZone } from '@/lib/events/dates';
+import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from '@/lib/phone';
 import {
   createHmac,
   randomInt,
@@ -110,6 +112,7 @@ function escapeHtml(value: string) {
 async function sendBookingEmail(input: {
   bookingId: string;
   eventName: string;
+  timeZone: string;
   date: Date | string;
   startTime: string;
   endTime: string;
@@ -138,7 +141,7 @@ async function sendBookingEmail(input: {
       : 'Doctor';
   const date = new Date(input.date).toLocaleDateString(
     'en-IN',
-    { dateStyle: 'long' },
+    { dateStyle: 'long', timeZone: 'UTC' },
   );
 
   const response = await fetch(
@@ -160,7 +163,7 @@ async function sendBookingEmail(input: {
           <p><strong>Booking ID:</strong> ${input.bookingId}</p>
           <p><strong>Event:</strong> ${escapeHtml(input.eventName)}</p>
           <p><strong>Date:</strong> ${date}</p>
-          <p><strong>Time:</strong> ${input.startTime} - ${input.endTime}</p>
+          <p><strong>Time:</strong> ${input.startTime} - ${input.endTime} (${escapeHtml(input.timeZone)})</p>
         `,
       }),
     },
@@ -500,15 +503,14 @@ export async function POST(
       );
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(details.email.trim())) {
+    if (!isValidEmail(details.email)) {
       return NextResponse.json(
         { success: false, error: 'Enter a valid email address.' },
         { status: 400 },
       );
     }
 
-    const mobileDigits = details.mobile.replace(/\D/g, '');
-    if (mobileDigits.length < 7 || mobileDigits.length > 15 || /[^\d\s()+-]/.test(details.mobile)) {
+    if (!isValidPhone(details.mobile, details.countryCode)) {
       return NextResponse.json(
         { success: false, error: 'Enter a valid mobile number.' },
         { status: 400 },
@@ -519,14 +521,9 @@ export async function POST(
       details.fullName
         .trim();
 
-    details.email =
-      details.email
-        .trim()
-        .toLowerCase();
+    details.email = normalizeEmail(details.email);
 
-    details.mobile =
-      details.mobile
-        .trim();
+    details.mobile = (details.mobile.trim().startsWith('+') ? '+' : '') + normalizePhone(details.mobile);
 
     await connectDB();
 
@@ -543,6 +540,7 @@ export async function POST(
           eventName: 1,
           startDate: 1,
           endDate: 1,
+          timeZone: 1,
         })
         .lean();
 
@@ -566,6 +564,7 @@ export async function POST(
       getEventStatus(
         new Date(event.startDate),
         new Date(event.endDate),
+        new Date(), event.timeZone,
       ) === 'COMPLETED'
     ) {
       return NextResponse.json(
@@ -750,7 +749,7 @@ export async function POST(
        RESERVE SLOT ATOMICALLY
     ======================================================== */
 
-    if (hasSlotEnded(schedule.date, slot.endTime)) {
+    if (hasSlotEnded(schedule.date, slot.endTime, new Date(), event.timeZone)) {
       return NextResponse.json(
         { success: false, error: 'This time slot has already ended. Please choose another slot.' },
         { status: 409 },
@@ -855,6 +854,7 @@ export async function POST(
       emailSent = await sendBookingEmail({
         bookingId: booking.bookingId,
         eventName: event.eventName,
+        timeZone: eventTimeZone(event.timeZone),
         date: schedule.date,
         startTime: reservedSlot.startTime,
         endTime: reservedSlot.endTime,
@@ -1041,8 +1041,7 @@ function normalizeDetails(
 
 async function generateBookingId() {
   const year =
-    new Date()
-      .getFullYear();
+    zonedDate().slice(0, 4);
 
   for (
     let attempt =

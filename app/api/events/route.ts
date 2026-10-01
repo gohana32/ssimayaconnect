@@ -1,3 +1,4 @@
+import { eventTimeZone } from '@/lib/events/dates';
 import {
   NextRequest,
   NextResponse,
@@ -17,7 +18,7 @@ import {
   generateSlotTimes,
 } from '@/lib/events/slots';
 import {
-  validateSchedule,
+  validateEventSchedules,
 } from '@/lib/events/schedule-validation';
 
 import { Event } from '@/models/Event';
@@ -116,7 +117,7 @@ export async function GET() {
     const events =
       await Event.find()
         .select(
-          'eventName eventType bookingFormTemplate venue startDate endDate description imageUrl status createdAt updatedAt',
+          'eventName eventType bookingFormTemplate venue timeZone startDate endDate description imageUrl status createdAt updatedAt',
         )
         .sort({
           startDate: 1,
@@ -170,9 +171,6 @@ export async function GET() {
         ),
       );
 
-    const now =
-      new Date();
-
     const responseEvents =
       events.map(
         (event) => {
@@ -191,7 +189,7 @@ export async function GET() {
             getEventStatus(
               event.startDate,
               event.endDate,
-              now,
+              new Date(), event.timeZone,
             );
 
           return {
@@ -216,6 +214,7 @@ export async function GET() {
 
             endDate:
               event.endDate,
+            timeZone: eventTimeZone(event.timeZone),
 
             description:
               event.description,
@@ -244,65 +243,6 @@ export async function GET() {
           };
         },
       );
-
-    const storedStatuses = new Map(
-      events.map((event) => [
-        event._id.toString(),
-        event.status,
-      ]),
-    );
-
-    const changedStatuses =
-      responseEvents.filter((responseEvent) => {
-        const storedStatus = storedStatuses.get(
-          responseEvent._id,
-        );
-
-        return (
-          storedStatus &&
-          storedStatus !== responseEvent.status
-        );
-      });
-
-    if (
-      changedStatuses.length >
-      0
-    ) {
-      await Event.bulkWrite(
-        changedStatuses.map(
-          (event) => ({
-            updateOne: {
-              filter: {
-                _id:
-                  event._id,
-              },
-
-              update: {
-                $set: {
-                  status:
-                    event.status,
-                },
-              },
-            },
-          }),
-        ),
-      );
-
-      changedStatuses.forEach(
-        (event) => {
-          emitRealtimeChange({
-            resource:
-              'events',
-
-            action:
-              'updated',
-
-            id:
-              event._id,
-          });
-        },
-      );
-    }
 
     return NextResponse.json(
       {
@@ -368,6 +308,8 @@ export async function POST(
 
     const formData =
       await req.formData();
+
+    const timeZone = String(formData.get('timeZone') || eventTimeZone());
 
     const eventName =
       String(
@@ -566,41 +508,9 @@ export async function POST(
       );
     }
 
-    if (
-      !Array.isArray(
-        daySchedulesInput,
-      ) ||
-      daySchedulesInput.length !==
-        numberOfDays
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Day schedule count does not match the number of event days.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    for (
-      let index = 0;
-      index < daySchedulesInput.length;
-      index += 1
-    ) {
-      const scheduleError = validateSchedule(
-        daySchedulesInput[index],
-        index,
-      );
-      if (scheduleError) {
-        return NextResponse.json(
-          { success: false, error: scheduleError },
-          { status: 400 },
-        );
-      }
+    const scheduleError = validateEventSchedules(startDateValue, endDateValue, numberOfDays, daySchedulesInput, timeZone);
+    if (scheduleError) {
+      return NextResponse.json({ success: false, error: scheduleError }, { status: 400 });
     }
 
     const thumbnailEntry =
@@ -642,11 +552,13 @@ export async function POST(
         startDate,
 
         endDate,
+        timeZone,
 
         status:
           getEventStatus(
             startDate,
             endDate,
+            new Date(), timeZone,
           ),
       });
 

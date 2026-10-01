@@ -1,3 +1,5 @@
+import { schedulesByLocalDate } from '@/lib/events/date-queries';
+import { withCurrentEventStatus } from '@/lib/events/status';
 import {
   NextResponse,
 } from 'next/server';
@@ -24,9 +26,6 @@ import {
   Slot,
 } from '@/models/Slot';
 
-import {
-  DaySchedule,
-} from '@/models/DaySchedule';
 
 export const dynamic =
   'force-dynamic';
@@ -65,31 +64,7 @@ export async function GET() {
 
     await connectDB();
 
-    /* ========================================================
-       DATE RANGE
-    ======================================================== */
-
-    const todayStart =
-      new Date();
-
-    todayStart.setHours(
-      0,
-      0,
-      0,
-      0,
-    );
-
-    const tomorrowStart =
-      new Date(
-        todayStart,
-      );
-
-    tomorrowStart.setDate(
-      tomorrowStart.getDate() +
-        1,
-    );
-
-    /* ========================================================
+/* ========================================================
        EVENTS
     ======================================================== */
 
@@ -101,13 +76,14 @@ export async function GET() {
           venue: 1,
           startDate: 1,
           endDate: 1,
+          timeZone: 1,
           status: 1,
         })
         .sort({
           startDate:
             1,
         })
-        .lean();
+        .lean().then(rows => rows.map(withCurrentEventStatus));
 
     const totalEvents =
       events.length;
@@ -138,19 +114,7 @@ export async function GET() {
     ======================================================== */
 
     const todaySchedules =
-      await DaySchedule.find({
-        date: {
-          $gte:
-            todayStart,
-
-          $lt:
-            tomorrowStart,
-        },
-      })
-        .select({
-          _id: 1,
-        })
-        .lean();
+      await schedulesByLocalDate('today');
 
     const todayScheduleIds =
       todaySchedules.map(
@@ -185,16 +149,7 @@ export async function GET() {
     ======================================================== */
 
     const futureSchedules =
-      await DaySchedule.find({
-        date: {
-          $gte:
-            todayStart,
-        },
-      })
-        .select({
-          _id: 1,
-        })
-        .lean();
+      await schedulesByLocalDate('upcoming');
 
     const futureScheduleIds =
       futureSchedules.map(
@@ -381,31 +336,7 @@ export async function GET() {
 
     const upcomingEvents =
       events
-        .filter(
-          (
-            event,
-          ) => {
-            if (
-              event.status ===
-              'COMPLETED'
-            ) {
-              return false;
-            }
-
-            if (
-              !event.endDate
-            ) {
-              return true;
-            }
-
-            return (
-              new Date(
-                event.endDate,
-              ).getTime() >=
-              todayStart.getTime()
-            );
-          },
-        )
+        .filter(event => event.status !== 'COMPLETED')
         .slice(
           0,
           3,

@@ -1,5 +1,8 @@
 'use client';
 
+import TimeZoneSelect from '@/app/components/TimeZoneSelect';
+import { calendarDateFormatter, eventDateFormatter, zonedDate, deviceTimeZone, DEFAULT_TIME_ZONE, calendarDate, DAY_MS } from '@/lib/events/dates';
+
 import type {
   ReactNode,
 } from 'react';
@@ -52,6 +55,7 @@ type ReportSummary = {
 };
 
 type EventOption = {
+  timeZone: string;
   id: string;
   eventName: string;
   status: string;
@@ -106,6 +110,8 @@ type EventPerformance = {
 };
 
 type BookingLedgerRow = {
+  reportingTimeZone: string;
+  eventTimeZone: string;
   id: string;
 
   bookingId: string;
@@ -149,6 +155,7 @@ type BookingLedgerRow = {
 };
 
 type ReportResponse = {
+  timeZone: string;
   success: boolean;
 
   message?: string;
@@ -177,6 +184,7 @@ type ReportResponse = {
 };
 
 type FilterState = {
+  timeZone: string;
   eventId: string;
 
   from: string;
@@ -212,6 +220,7 @@ const EMPTY_SUMMARY: ReportSummary = {
 };
 
 const EMPTY_FILTERS: FilterState = {
+  timeZone: '',
   eventId: '',
   from: '',
   to: '',
@@ -317,6 +326,7 @@ export default function ReportsPage() {
         try {
           const params =
             new URLSearchParams();
+          params.set('timeZone', filters.timeZone || deviceTimeZone());
 
           if (
             filters.eventId
@@ -508,34 +518,10 @@ export default function ReportsPage() {
   function quickRange(
     days: number,
   ) {
-    const end =
-      new Date();
-
-    const start =
-      new Date();
-
-    start.setDate(
-      start.getDate() -
-        (days - 1),
-    );
-
-    setDraft(
-      (
-        current,
-      ) => ({
-        ...current,
-
-        from:
-          toDateInput(
-            start,
-          ),
-
-        to:
-          toDateInput(
-            end,
-          ),
-      }),
-    );
+    const timeZone = draft.timeZone || deviceTimeZone();
+    const to = zonedDate(new Date(), timeZone);
+    const from = calendarDate(new Date(new Date(to).getTime() - (days - 1) * DAY_MS));
+    setDraft(current => ({ ...current, from, to }));
   }
 
   /* ==========================================================
@@ -641,7 +627,7 @@ export default function ReportsPage() {
 
           Value:
             formatDateTime(
-              report.generatedAt,
+              report.generatedAt, report?.timeZone,
             ),
         },
 
@@ -906,7 +892,7 @@ export default function ReportsPage() {
         <p>
           Generated:{' '}
           {formatDateTime(
-            report?.generatedAt,
+            report?.generatedAt, report?.timeZone,
           )}
         </p>
       </div>
@@ -1217,10 +1203,8 @@ export default function ReportsPage() {
                   ) => ({
                     ...current,
 
-                    eventId:
-                      event
-                        .target
-                        .value,
+                    eventId: event.target.value,
+                    timeZone: report?.eventOptions.find(option => option.id === event.target.value)?.timeZone || deviceTimeZone(),
                   }),
                 )
               }
@@ -1255,6 +1239,15 @@ export default function ReportsPage() {
               )}
             </select>
           </FilterField>
+
+          <TimeZoneSelect
+            hint="Registration filters, charts and timestamps use this timezone. Slot times remain in the event timezone."
+            value={draft.timeZone}
+            onChange={timeZone => setDraft(current => ({ ...current, timeZone }))}
+            autoDetect
+            className="form-select w-full"
+          />
+          <p className="text-xs text-gray-500">Displayed report timezone: {report?.timeZone || DEFAULT_TIME_ZONE}</p>
 
           <FilterField
             label="Registered From"
@@ -2641,7 +2634,7 @@ export default function ReportsPage() {
                           {
                             formatSlot(
                               booking.startTime,
-                              booking.endTime,
+                              booking.endTime, booking.eventTimeZone,
                             )
                           }
                         </p>
@@ -2665,7 +2658,7 @@ export default function ReportsPage() {
                       <td>
                         {
                           formatDateTime(
-                            booking.checkedInAt,
+                            booking.checkedInAt, booking.reportingTimeZone,
                           )
                         }
                       </td>
@@ -2680,7 +2673,7 @@ export default function ReportsPage() {
                       <td>
                         {
                           formatDateTime(
-                            booking.createdAt,
+                            booking.createdAt, booking.reportingTimeZone,
                           )
                         }
                       </td>
@@ -2780,7 +2773,7 @@ export default function ReportsPage() {
         <span>
           Generated{' '}
           {formatDateTime(
-            report?.generatedAt,
+            report?.generatedAt, report?.timeZone,
           )}
         </span>
       </footer>
@@ -3773,7 +3766,7 @@ function BookingMobileCard({
           value={
             formatSlot(
               booking.startTime,
-              booking.endTime,
+              booking.endTime, booking.eventTimeZone,
             )
           }
         />
@@ -3790,7 +3783,7 @@ function BookingMobileCard({
           label="Checked In"
           value={
             formatDateTimeShort(
-              booking.checkedInAt,
+              booking.checkedInAt, booking.reportingTimeZone,
             )
           }
         />
@@ -3842,7 +3835,7 @@ function BookingMobileCard({
             label="Registered"
             value={
               formatDateTime(
-                booking.createdAt,
+                booking.createdAt, booking.reportingTimeZone,
               )
             }
           />
@@ -4900,7 +4893,7 @@ function buildExportRows(
       'Time Slot':
         formatSlot(
           booking.startTime,
-          booking.endTime,
+          booking.endTime, booking.eventTimeZone,
         ),
 
       Attendance:
@@ -4914,7 +4907,7 @@ function buildExportRows(
 
       'Checked In At':
         formatDateTime(
-          booking.checkedInAt,
+          booking.checkedInAt, booking.reportingTimeZone,
         ),
 
       'Checked In By':
@@ -4922,7 +4915,7 @@ function buildExportRows(
 
       'Registered At':
         formatDateTime(
-          booking.createdAt,
+          booking.createdAt, booking.reportingTimeZone,
         ),
     }),
   );
@@ -4984,47 +4977,12 @@ function downloadBlob(
 function buildFilename(
   prefix: string,
   extension: string,
-) {
-  const date =
-    new Date()
-      .toISOString()
-      .slice(
-        0,
-        10,
-      );
-
-  return `${prefix}-${date}.${extension}`;
-}
+) { return `${prefix}-${zonedDate(new Date(), deviceTimeZone())}.${extension}`; }
 
 /* ============================================================
    DATE
 ============================================================ */
 
-function toDateInput(
-  date: Date,
-) {
-  const year =
-    date.getFullYear();
-
-  const month =
-    String(
-      date.getMonth() +
-        1,
-    ).padStart(
-      2,
-      '0',
-    );
-
-  const day =
-    String(
-      date.getDate(),
-    ).padStart(
-      2,
-      '0',
-    );
-
-  return `${year}-${month}-${day}`;
-}
 
 function formatDate(
   value:
@@ -5047,7 +5005,7 @@ function formatDate(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-GB',
     {
       day: '2-digit',
@@ -5062,6 +5020,7 @@ function formatDate(
 function formatDateTime(
   value:
     string | null | undefined,
+  timeZone = deviceTimeZone(),
 ) {
   if (!value) {
     return '—';
@@ -5080,7 +5039,7 @@ function formatDateTime(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return eventDateFormatter(
     'en-GB',
     {
       day: '2-digit',
@@ -5088,7 +5047,7 @@ function formatDateTime(
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    },
+    }, timeZone,
   ).format(
     date,
   );
@@ -5097,6 +5056,7 @@ function formatDateTime(
 function formatDateTimeShort(
   value:
     string | null | undefined,
+  timeZone = deviceTimeZone(),
 ) {
   if (!value) {
     return '—';
@@ -5115,14 +5075,14 @@ function formatDateTimeShort(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return eventDateFormatter(
     'en-GB',
     {
       day: '2-digit',
       month: 'short',
       hour: '2-digit',
       minute: '2-digit',
-    },
+    }, timeZone,
   ).format(
     date,
   );
@@ -5131,6 +5091,7 @@ function formatDateTimeShort(
 function formatSlot(
   start: string,
   end: string,
+  timeZone: string,
 ) {
   if (
     !start ||
@@ -5139,7 +5100,7 @@ function formatSlot(
     return '—';
   }
 
-  return `${start} - ${end}`;
+  return `${start} - ${end} (${timeZone})`;
 }
 
 /* ============================================================

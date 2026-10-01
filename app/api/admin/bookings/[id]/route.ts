@@ -1,3 +1,5 @@
+import { getEventStatus } from '@/lib/events/status';
+import { isValidEmail, isValidPhone, normalizeEmail, normalizePhone } from '@/lib/phone';
 import {
   NextRequest,
   NextResponse,
@@ -309,14 +311,14 @@ export async function PATCH(
     }
 
     if (
-      !details.email?.trim()
+      !isValidEmail(details.email)
     ) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            'Email cannot be empty.',
+            'Enter a valid email address.',
         },
         {
           status: 400,
@@ -325,14 +327,14 @@ export async function PATCH(
     }
 
     if (
-      !details.mobile?.trim()
+      !isValidPhone(details.mobile, details.countryCode)
     ) {
       return NextResponse.json(
         {
           success: false,
 
           message:
-            'Mobile cannot be empty.',
+            'Enter a valid mobile number.',
         },
         {
           status: 400,
@@ -360,6 +362,9 @@ export async function PATCH(
         },
       );
     }
+
+    details.email = normalizeEmail(details.email);
+    details.mobile = (details.mobile.trim().startsWith('+') ? '+' : '') + normalizePhone(details.mobile);
 
     booking.details = {
       ...(booking.details ||
@@ -603,7 +608,7 @@ export async function DELETE(
 async function getBooking(
   id: string,
 ) {
-  return Booking.findById(
+  const booking = await Booking.findById(
     id,
   )
     .populate({
@@ -619,6 +624,11 @@ async function getBooking(
         'dayScheduleId',
     })
     .lean();
+  if (booking && isRecord(booking.eventId)) {
+    const event = booking.eventId;
+    if (event.startDate && event.endDate) event.status = getEventStatus(new Date(String(event.startDate)), new Date(String(event.endDate)), new Date(), String(event.timeZone || 'Asia/Kolkata'));
+  }
+  return booking;
 }
 
 /* ============================================================

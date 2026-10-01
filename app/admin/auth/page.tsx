@@ -1,5 +1,7 @@
 'use client';
 
+import { eventDateFormatter, zonedDayStart, calendarDate, DAY_MS, deviceTimeZone } from '@/lib/events/dates';
+
 import { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -189,9 +191,9 @@ export default function AdminAuthManagementPage() {
       const params = new URLSearchParams();
       if (logAdminFilter) params.set('admin', logAdminFilter);
       if (logActionFilter) params.set('action', logActionFilter);
-      // Send local-day boundaries as ISO timestamps so the server's timezone doesn't matter
-      if (logFromDate) params.set('from', new Date(`${logFromDate}T00:00:00`).toISOString());
-      if (logToDate) params.set('to', new Date(`${logToDate}T23:59:59.999`).toISOString());
+      // Send boundaries in the device timezone used to display activity timestamps.
+      if (logFromDate) params.set('from', zonedDayStart(logFromDate, deviceTimeZone()).toISOString());
+      if (logToDate) params.set('to', new Date(zonedDayStart(calendarDate(new Date(new Date(logToDate).getTime() + DAY_MS)), deviceTimeZone()).getTime() - 1).toISOString());
 
       const response = await fetch(`/api/admin/activity?${params.toString()}`);
       const data = await response.json();
@@ -798,7 +800,7 @@ export default function AdminAuthManagementPage() {
                     return (
                       <tr key={log._id} className="hover:bg-gray-50/70">
                         <td className="whitespace-nowrap px-4 py-2.5 text-gray-500">
-                          {new Date(log.createdAt).toLocaleString()}
+                          {eventDateFormatter('en-IN', { dateStyle: 'medium', timeStyle: 'long' }).format(new Date(log.createdAt))}
                         </td>
                         <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-secondary">
                           @{log.admin}

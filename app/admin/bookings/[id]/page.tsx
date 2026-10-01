@@ -1,5 +1,7 @@
 'use client';
 
+import { calendarDateFormatter, eventDateFormatter, eventTimeZone } from '@/lib/events/dates';
+
 import type {
   ReactNode,
 } from 'react';
@@ -1375,7 +1377,7 @@ export default function BookingDetailsPage() {
                 label="Time"
                 value={
                   formatTimeRange(
-                    slot,
+                    slot, toText(event.timeZone),
                   )
                 }
               />
@@ -3615,7 +3617,7 @@ function formatDate(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-GB',
     {
       day:
@@ -3653,7 +3655,7 @@ function formatDateTime(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return eventDateFormatter(
     'en-GB',
     {
       day:
@@ -3683,6 +3685,7 @@ function formatDateTime(
 function formatTimeRange(
   slot:
     GenericRecord,
+  timeZone?: string,
 ) {
   const start =
     formatTime(
@@ -3707,7 +3710,7 @@ function formatTimeRange(
     return '—';
   }
 
-  return `${start} – ${end}`;
+  return `${start} – ${end} (${eventTimeZone(timeZone)})`;
 }
 
 function formatTime(

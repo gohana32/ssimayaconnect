@@ -512,6 +512,7 @@ export default function EventsManagementPage() {
     ).toLocaleDateString(
       'en-GB',
       {
+        timeZone: 'UTC',
         day:
           '2-digit',
 

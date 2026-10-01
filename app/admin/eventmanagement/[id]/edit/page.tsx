@@ -1,5 +1,8 @@
 'use client';
 
+import TimeZoneSelect from '@/app/components/TimeZoneSelect';
+import { calendarDateFormatter, eventTimeZone } from '@/lib/events/dates';
+
 import type {
   ChangeEvent,
   FormEvent,
@@ -57,6 +60,7 @@ type DaySchedule = {
 };
 
 type EventResponse = {
+  timeZone?: string;
   _id: string;
 
   eventName: string;
@@ -266,21 +270,7 @@ const createDaySchedule = (
 
 function parseLocalDate(
   value: string,
-) {
-  const [
-    year,
-    month,
-    day,
-  ] = value
-    .split('-')
-    .map(Number);
-
-  return new Date(
-    year,
-    month - 1,
-    day,
-  );
-}
+) { return new Date(`${value}T00:00:00.000Z`); }
 
 function toDateInputValue(
   value:
@@ -336,17 +326,17 @@ function addDays(
       value,
     );
 
-  date.setDate(
-    date.getDate() +
+  date.setUTCDate(
+    date.getUTCDate() +
       amount,
   );
 
   const year =
-    date.getFullYear();
+    date.getUTCFullYear();
 
   const month =
     String(
-      date.getMonth() +
+      date.getUTCMonth() +
         1,
     ).padStart(
       2,
@@ -355,7 +345,7 @@ function addDays(
 
   const day =
     String(
-      date.getDate(),
+      date.getUTCDate(),
     ).padStart(
       2,
       '0',
@@ -371,7 +361,7 @@ function formatDate(
     return 'Date not selected';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-IN',
     {
       day: 'numeric',
@@ -392,7 +382,7 @@ function formatCompactDate(
     return '—';
   }
 
-  return new Intl.DateTimeFormat(
+  return calendarDateFormatter(
     'en-IN',
     {
       day: 'numeric',
@@ -621,6 +611,8 @@ export default function EditEventPage() {
      EVENT
   ========================================================== */
 
+  const [timeZone, setTimeZone] = useState('');
+
   const [
     eventName,
     setEventName,
@@ -776,6 +768,8 @@ export default function EditEventPage() {
 
         const event =
           data.event as EventResponse;
+
+        setTimeZone(eventTimeZone(event.timeZone));
 
         setEventName(
           event.eventName,
@@ -1505,6 +1499,7 @@ export default function EditEventPage() {
     try {
       const formData =
         new FormData();
+      formData.set('timeZone', timeZone);
 
       formData.set(
         'eventName',
@@ -2300,6 +2295,8 @@ export default function EditEventPage() {
                     )}
                   </select>
                 </Field>
+
+                <TimeZoneSelect value={timeZone} onChange={setTimeZone} autoDetect={false} className={inputClass} />
 
                 <Field
                   label="Start Date"

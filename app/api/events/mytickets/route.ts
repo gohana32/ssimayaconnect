@@ -1,3 +1,6 @@
+import { eventTimeZone } from '@/lib/events/dates';
+import { hasSlotEnded } from '@/lib/events/status';
+import { isValidPhone, normalizePhone, phoneIdentity } from '@/lib/phone';
 import {
   NextRequest,
   NextResponse,
@@ -84,7 +87,7 @@ export async function GET(
 
 
     const normalizedMobile =
-      normalizeMobile(
+      normalizePhone(
         mobile,
       );
 
@@ -98,53 +101,23 @@ export async function GET(
       );
     }
 
-    if (normalizedMobile.length < 7) {
+    if (!isValidPhone(mobile)) {
       return NextResponse.json(
         { success: false, message: 'Enter your full mobile number.' },
         { status: 400 },
       );
     }
 
-    // Full-number match only: a partial match would expose other people's tickets.
-    const mobilePattern = `${normalizedMobile.split('').join('\\D*')}$`;
-
-
-
-    const bookings =
-      await Booking.find(
-        {
-          'details.email':
-            email,
-
-          $or: [
-
-            {
-              'details.mobile':
-                {
-                  $regex:
-                    mobilePattern,
-                },
-            },
-
-
-            {
-              'details.phone':
-                {
-                  $regex:
-                    mobilePattern,
-                },
-            },
-
-          ],
-        },
-      )
+    // Normalize the complete stored number, including its separate calling code.
+    // Existing records remain readable without a destructive data migration.
+    const bookings = await Booking.find({ 'details.email': email })
       .populate(
         {
           path:
             'eventId',
 
           select:
-            'eventName venue imageUrl updatedAt startDate endDate status',
+            'eventName venue imageUrl updatedAt startDate endDate status timeZone',
         },
       )
       .populate(
@@ -176,7 +149,7 @@ export async function GET(
 
 
     const tickets =
-      bookings.map(
+      bookings.filter((booking) => phoneIdentity(booking.details?.mobile || booking.details?.phone, booking.details?.countryCode) === normalizedMobile).map(
         (
           booking,
         ) => {
@@ -206,12 +179,14 @@ export async function GET(
               booking,
               slot,
               schedule,
+              eventTimeZone(event.timeZone),
             );
 
 
 
           return {
 
+            timeZone: eventTimeZone(event.timeZone),
             bookingId:
               booking.bookingId,
 
@@ -377,154 +352,15 @@ export async function GET(
 
 
 function calculateTicketStatus(
-  booking:
-    any,
-
-  slot:
-    any,
-
-  schedule:
-    any,
-
+  booking: { attendanceStatus?: string },
+  slot: { endTime?: string },
+  schedule: { date?: string | Date },
+  timeZone: string,
 ): TicketStatus {
-
-
-  /*
-    Admin scan completed
-  */
-
-  if (
-    booking.attendanceStatus ===
-    'PRESENT'
-  ) {
-
-    return 'ATTENDED';
-
-  }
-
-
-
-  if (
-    !schedule.date ||
-    !slot.endTime
-  ) {
-
-    return 'ACTIVE';
-
-  }
-
-
-
-  const expiry =
-    new Date(
-      `${formatDate(
-        schedule.date,
-      )}T${slot.endTime}:00+05:30`,
-    );
-
-
-
-  if (
-    Number.isNaN(
-      expiry.getTime(),
-    )
-  ) {
-
-    return 'ACTIVE';
-
-  }
-
-
-
-  if (
-    Date.now() >
-    expiry.getTime()
-  ) {
-
-    return 'EXPIRED';
-
-  }
-
-
-
-  return 'ACTIVE';
-
+  if (booking.attendanceStatus === 'PRESENT') return 'ATTENDED';
+  if (!schedule.date || !slot.endTime) return 'EXPIRED';
+  return hasSlotEnded(schedule.date, slot.endTime, new Date(), timeZone) ? 'EXPIRED' : 'ACTIVE';
 }
-
-
-
-/* ============================================================
-   MOBILE
-============================================================ */
-
-
-function normalizeMobile(
-  value:
-    string,
-) {
-
-  return value
-    .replace(
-      /\D/g,
-      '',
-    )
-    .slice(
-      -10,
-    );
-
-}
-
-
-
-/* ============================================================
-   DATE
-============================================================ */
-
-
-function formatDate(
-  value:
-    string,
-) {
-
-  const date =
-    new Date(
-      value,
-    );
-
-
-
-  const year =
-    date.getUTCFullYear();
-
-
-
-  const month =
-    String(
-      date.getUTCMonth()+1,
-    )
-    .padStart(
-      2,
-      '0',
-    );
-
-
-
-  const day =
-    String(
-      date.getUTCDate(),
-    )
-    .padStart(
-      2,
-      '0',
-    );
-
-
-
-  return `${year}-${month}-${day}`;
-
-}
-
-
 
 /* ============================================================
    OBJECT

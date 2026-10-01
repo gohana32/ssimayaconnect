@@ -1,3 +1,4 @@
+import type { BookingDetails } from '@/lib/booking-contracts';
 import mongoose, {
   Document,
   Model,
@@ -16,13 +17,7 @@ export type CheckInMethod =
   | 'QR'
   | 'MANUAL';
 
-export interface IBookingDetails {
-  fullName: string;
-  email: string;
-  mobile: string;
-
-  [key: string]: string;
-}
+export type IBookingDetails = BookingDetails;
 
 export interface IBooking
   extends Document {
