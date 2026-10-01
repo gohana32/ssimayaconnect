@@ -16,6 +16,7 @@ export type BookingFormTemplate =
   | 'template-3';
 
 export type EventStatus =
+  | 'CANCELLED'
   | 'LIVE'
   | 'COMPLETED'
   | 'UPCOMING';
@@ -127,6 +128,7 @@ const EventSchema =
         type: String,
         enum: [
           'LIVE',
+          'CANCELLED',
           'COMPLETED',
           'UPCOMING',
         ],

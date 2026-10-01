@@ -36,7 +36,8 @@ import {
 type TicketStatus =
   | 'ACTIVE'
   | 'EXPIRED'
-  | 'ATTENDED';
+  | 'ATTENDED'
+  | 'CANCELLED';
 
 
 interface Ticket {
@@ -897,7 +898,7 @@ export default function MyTicketsPage() {
 
               >
 
-                <QRCodeSVG
+                {selectedTicket.status === 'CANCELLED' ? <p className="max-w-xs font-semibold text-red-700">Event cancelled. This ticket is not valid for admission.</p> : (<QRCodeSVG
 
                   value={
                     selectedTicket.qrData
@@ -907,7 +908,7 @@ export default function MyTicketsPage() {
                     220
                   }
 
-                />
+                />)}
 
 
                 <p
@@ -1214,7 +1215,7 @@ function TicketCard({
               text-white
             "
           >
-            QR Ticket
+            {ticket.status === 'CANCELLED' ? 'View cancellation' : 'QR Ticket'}
           </button>
 
 

@@ -58,7 +58,8 @@ interface IEvent {
   status:
     | 'LIVE'
     | 'COMPLETED'
-    | 'UPCOMING';
+    | 'UPCOMING'
+    | 'CANCELLED';
 }
 
 type CachedTicket = {
@@ -245,7 +246,7 @@ export default function EventsPage() {
             Array.isArray(
               data.events,
             )
-              ? data.events
+              ? data.events.filter((event: IEvent) => event.status !== 'CANCELLED')
               : [],
           );
 
@@ -256,7 +257,7 @@ export default function EventsPage() {
                 Array.isArray(
                   data.events,
                 )
-                  ? data.events
+                  ? data.events.filter((event: IEvent) => event.status !== 'CANCELLED')
                   : [],
               ),
             );
@@ -308,7 +309,7 @@ export default function EventsPage() {
           Array.isArray(parsed)
         ) {
           window.setTimeout(() => {
-            setEvents(parsed as IEvent[]);
+            setEvents((parsed as IEvent[]).filter(event => event.status !== 'CANCELLED'));
             setLoading(false);
           }, 0);
           hasCachedEvents = true;

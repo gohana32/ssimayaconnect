@@ -1,6 +1,7 @@
 import { calendarDate, zonedDate, slotInstant, DEFAULT_TIME_ZONE } from '@/lib/events/dates';
 
-export function getEventStatus(startDate: Date | string, endDate: Date | string, now = new Date(), timeZone = DEFAULT_TIME_ZONE) {
+export function getEventStatus(startDate: Date | string, endDate: Date | string, now = new Date(), timeZone = DEFAULT_TIME_ZONE, storedStatus?: string) {
+  if (storedStatus === 'CANCELLED') return 'CANCELLED' as const;
   const today = zonedDate(now, timeZone);
   if (today > calendarDate(endDate)) return 'COMPLETED' as const;
   if (today >= calendarDate(startDate)) return 'LIVE' as const;
@@ -15,6 +16,6 @@ export function hasSlotEnded(scheduleDate: Date | string, endTime: string, now =
 
 export function withCurrentEventStatus<T extends { startDate?: Date | string; endDate?: Date | string; status?: string; timeZone?: string }>(event: T): T {
   return event.startDate && event.endDate
-    ? { ...event, status: getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone) }
+    ? { ...event, status: getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone, event.status) }
     : event;
 }

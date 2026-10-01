@@ -54,7 +54,8 @@ interface IEvent {
   status:
     | 'LIVE'
     | 'COMPLETED'
-    | 'UPCOMING';
+    | 'UPCOMING'
+    | 'CANCELLED';
 
   description?: string;
 
@@ -75,6 +76,7 @@ type EventTab =
   | 'Completed';
 
 type DeleteTarget = {
+  hasBookings: boolean;
   id: string;
   name: string;
 };
@@ -316,25 +318,16 @@ export default function EventsManagementPage() {
         );
       }
 
-      setEvents(
-        (
-          current,
-        ) =>
-          current.filter(
-            (
-              event,
-            ) =>
-              event._id !==
-              id,
-          ),
-      );
+      setEvents(current => data.cancelled
+        ? current.map(event => event._id === id ? { ...event, status: 'CANCELLED' } : event)
+        : current.filter(event => event._id !== id));
 
       setDeleteTarget(
         null,
       );
 
       setSuccessMessage(
-        `"${name}" was deleted successfully.`,
+        data.message || `"${name}" was deleted successfully.`,
       );
 
       window.setTimeout(
@@ -1540,6 +1533,7 @@ export default function EventsManagementPage() {
                     )}
                     onDelete={() =>
                       setDeleteTarget({
+                        hasBookings: event.bookedSlots > 0,
                         id:
                           event._id,
 
@@ -2188,7 +2182,7 @@ function EventCard({
                 gap-2
               "
             >
-              <AdminAccess permission="events" action="write"><Link
+              {event.status !== 'CANCELLED' && <AdminAccess permission="events" action="write"><Link
                 href={`/admin/eventmanagement/${event._id}/edit`}
                 className="
                   inline-flex
@@ -2223,9 +2217,9 @@ function EventCard({
                 <EditIcon />
 
                 Edit Event
-              </Link></AdminAccess>
+              </Link></AdminAccess>}
 
-              <AdminAccess permission="events" action="delete"><button
+              {event.status !== 'CANCELLED' && <AdminAccess permission="events" action="delete"><button
                 type="button"
                 disabled={
                   deleting
@@ -2274,8 +2268,8 @@ function EventCard({
 
                 {deleting
                   ? 'Deleting'
-                  : 'Delete'}
-              </button></AdminAccess>
+                  : event.bookedSlots > 0 ? 'Cancel Event' : 'Delete'}
+              </button></AdminAccess>}
             </div>
           </div>
         </div>
@@ -2522,6 +2516,7 @@ function StatusLabel({
   status:
     IEvent['status'];
 }) {
+  if (status === 'CANCELLED') return <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700">Cancelled</span>;
   if (
     status ===
     'LIVE'
@@ -2808,7 +2803,7 @@ function DeleteModal({
                   text-secondary
                 "
               >
-                Delete Event?
+                {target.hasBookings ? 'Cancel Event?' : 'Delete Event?'}
               </h2>
 
               <p
@@ -2821,8 +2816,7 @@ function DeleteModal({
                   text-gray-500
                 "
               >
-                You are about to
-                permanently delete{' '}
+                {target.hasBookings ? 'You are about to cancel ' : 'You are about to delete '}
                 <strong
                   className="
                     font-semibold
@@ -2831,8 +2825,7 @@ function DeleteModal({
                 >
                   {target.name}
                 </strong>
-                . This action cannot
-                be undone.
+                . {target.hasBookings ? 'Booking history will be retained. Tickets will no longer allow admission.' : 'If bookings exist when this is confirmed, the event will be cancelled and its history retained.'}
               </p>
             </div>
           </div>
@@ -2913,8 +2906,8 @@ function DeleteModal({
               )}
 
               {deleting
-                ? 'Deleting...'
-                : 'Delete Event'}
+                ? 'Saving...'
+                : target.hasBookings ? 'Cancel Event' : 'Delete Event'}
             </button>
           </div>
         </motion.div>

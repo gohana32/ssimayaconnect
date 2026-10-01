@@ -52,3 +52,14 @@ export function generateSlotTimes(
 
   return slots;
 }
+
+export function generateSlotPreview(schedule: {
+  startTime: string; endTime: string; slotDuration: string; slotGap: string;
+  capacity: string; lunchEnabled: boolean; lunchStart: string; lunchEnd: string;
+}) {
+  const capacity = Number(schedule.capacity);
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 20) return [];
+  return generateSlotTimes(schedule.startTime, schedule.endTime, schedule.slotDuration,
+    schedule.slotGap, schedule.lunchEnabled, schedule.lunchStart, schedule.lunchEnd)
+    .map(slot => `${slot.startTime} – ${slot.endTime}`);
+}

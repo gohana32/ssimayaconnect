@@ -1,5 +1,7 @@
 'use client';
 
+import { generateSlotPreview as generateSlots } from '@/lib/events/slots';
+
 import { adminFetch as fetch } from '@/lib/admin-auth';
 
 import TimeZoneSelect from '@/app/components/TimeZoneSelect';
@@ -343,32 +345,6 @@ function timeToMinutes(
   );
 }
 
-function formatTime(
-  totalMinutes: number,
-) {
-  const hours =
-    Math.floor(
-      totalMinutes /
-        60,
-    );
-
-  const minutes =
-    totalMinutes %
-    60;
-
-  return `${String(
-    hours,
-  ).padStart(
-    2,
-    '0',
-  )}:${String(
-    minutes,
-  ).padStart(
-    2,
-    '0',
-  )}`;
-}
-
 /* ============================================================
    SCHEDULE HELPERS
 ============================================================ */
@@ -381,115 +357,6 @@ function copyDay1Schedule(
     ...day1,
     sameAsDay1,
   };
-}
-
-function generateSlots(
-  schedule: DaySchedule,
-) {
-  const start =
-    timeToMinutes(
-      schedule.startTime,
-    );
-
-  const end =
-    timeToMinutes(
-      schedule.endTime,
-    );
-
-  const duration =
-    Number(
-      schedule.slotDuration,
-    );
-
-  const gap =
-    Number(
-      schedule.slotGap,
-    );
-
-  if (
-    !start ||
-    !end ||
-    !duration ||
-    end <= start
-  ) {
-    return [];
-  }
-
-  const lunchStart =
-    schedule.lunchEnabled
-      ? timeToMinutes(
-          schedule.lunchStart,
-        )
-      : 0;
-
-  const lunchEnd =
-    schedule.lunchEnabled
-      ? timeToMinutes(
-          schedule.lunchEnd,
-        )
-      : 0;
-
-  if (
-    schedule.lunchEnabled &&
-    (
-      !lunchStart ||
-      !lunchEnd ||
-      lunchEnd <=
-        lunchStart ||
-      lunchStart <
-        start ||
-      lunchEnd >
-        end
-    )
-  ) {
-    return [];
-  }
-
-  const slots:
-    string[] = [];
-
-  let cursor =
-    start;
-
-  while (
-    cursor +
-      duration <=
-    end
-  ) {
-    const slotEnd =
-      cursor +
-      duration;
-
-    const overlapsLunch =
-      schedule.lunchEnabled &&
-      cursor <
-        lunchEnd &&
-      slotEnd >
-        lunchStart;
-
-    if (
-      overlapsLunch
-    ) {
-      cursor =
-        lunchEnd;
-
-      continue;
-    }
-
-    slots.push(
-      `${formatTime(
-        cursor,
-      )} – ${formatTime(
-        slotEnd,
-      )}`,
-    );
-
-    cursor =
-      slotEnd +
-      gap;
-  }
-
-  return slots;
 }
 
 /* ============================================================

@@ -39,7 +39,8 @@ interface BookingEvent {
   status:
     | 'LIVE'
     | 'UPCOMING'
-    | 'COMPLETED';
+    | 'COMPLETED'
+    | 'CANCELLED';
 }
 
 interface EventApiPayload {
@@ -225,7 +226,7 @@ export default function EventBookingPage() {
           if (
             data.event.status !== 'LIVE' &&
             data.event.status !== 'UPCOMING' &&
-            data.event.status !== 'COMPLETED'
+            data.event.status !== 'COMPLETED' && data.event.status !== 'CANCELLED'
           ) {
             throw new Error(
               'The event server returned an invalid event status.',
@@ -380,10 +381,10 @@ export default function EventBookingPage() {
             }
           />
         ) : event.status ===
-          'COMPLETED' ? (
+          'COMPLETED' || event.status === 'CANCELLED' ? (
           <BookingMessage
             title="Booking unavailable"
-            message="This event has already completed and is no longer accepting bookings."
+            message={event.status === 'CANCELLED' ? 'This event has been cancelled. Existing tickets are not valid for admission.' : 'This event has already completed and is no longer accepting bookings.'}
             onBack={() =>
               router.back()
             }

@@ -1,3 +1,5 @@
+import { readEventForm, createEvent } from '@/lib/events/mutations';
+import { BookingError } from '@/lib/bookings/mutations';
 import { adminAccessError } from '@/lib/admin-api-auth';
 import { eventTimeZone } from '@/lib/events/dates';
 import {
@@ -15,18 +17,9 @@ import {
   getEventStatus,
 } from '@/lib/events/status';
 
-import {
-  generateSlotTimes,
-} from '@/lib/events/slots';
-import {
-  validateEventSchedules,
-} from '@/lib/events/schedule-validation';
 
 import { Event } from '@/models/Event';
 
-import {
-  DaySchedule,
-} from '@/models/DaySchedule';
 
 import { Slot } from '@/models/Slot';
 
@@ -35,59 +28,12 @@ import {
 } from '@/lib/realtime';
 import { logAdminActivity } from '@/lib/admin-server-auth';
 
-type EventType =
-  | 'conference'
-  | 'mantram'
-  | 'event';
-
-type BookingFormTemplate =
-  | 'practitioner-institutional'
-  | 'template-2'
-  | 'template-3';
-
-type DayScheduleInput = {
-  date: string;
-
-  startTime: string;
-
-  endTime: string;
-
-  lunchEnabled: boolean;
-
-  lunchStart: string;
-
-  lunchEnd: string;
-
-  slotDuration: string;
-
-  slotGap: string;
-
-  capacity: string;
-
-  sameAsDay1: boolean;
-};
-
-const BOOKING_TEMPLATES:
-  BookingFormTemplate[] = [
-    'practitioner-institutional',
-    'template-2',
-    'template-3',
-  ];
-
 function getErrorMessage(
   error: unknown,
 ) {
   return error instanceof Error
     ? error.message
     : 'Internal Server Error';
-}
-
-function isBookingTemplate(
-  value: string,
-): value is BookingFormTemplate {
-  return BOOKING_TEMPLATES.includes(
-    value as BookingFormTemplate,
-  );
 }
 
 function getPublicImageUrl(
@@ -190,7 +136,7 @@ export async function GET() {
             getEventStatus(
               event.startDate,
               event.endDate,
-              new Date(), event.timeZone,
+              new Date(), event.timeZone, event.status,
             );
 
           return {
@@ -287,451 +233,25 @@ export async function GET() {
    CREATE EVENT
 ============================================================ */
 
-export async function POST(
-  req: NextRequest,
-) {
+export async function POST(req: NextRequest) {
   const denied = await adminAccessError('events', 'write');
   if (denied) return denied;
-
   try {
+    const form = await req.formData();
+    const input = readEventForm(form);
+    const thumbnail = form.get('thumbnail');
+    const imageUrl = thumbnail instanceof File && thumbnail.size > 0 ? await uploadImageToS3(thumbnail, 'thumbnails') : '';
     await connectDB();
-
-    const formData =
-      await req.formData();
-
-    const timeZone = String(formData.get('timeZone') || eventTimeZone());
-
-    const eventName =
-      String(
-        formData.get(
-          'eventName',
-        ) || '',
-      ).trim();
-
-    const eventType =
-      String(
-        formData.get(
-          'eventType',
-        ) || '',
-      ) as EventType;
-
-    const bookingTemplateValue =
-      String(
-        formData.get(
-          'bookingFormTemplate',
-        ) ||
-          'practitioner-institutional',
-      );
-
-    const venue =
-      String(
-        formData.get(
-          'venue',
-        ) || '',
-      ).trim();
-
-    const description =
-      String(
-        formData.get(
-          'description',
-        ) || '',
-      ).trim();
-
-    const numberOfDays =
-      Number(
-        formData.get(
-          'numberOfDays',
-        ),
-      );
-
-    const startDateValue =
-      String(
-        formData.get(
-          'startDate',
-        ) || '',
-      );
-
-    const endDateValue =
-      String(
-        formData.get(
-          'endDate',
-        ) || '',
-      );
-
-    if (
-      !eventName ||
-      !venue ||
-      !description ||
-      !startDateValue ||
-      !endDateValue
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Required event information is missing.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    if (
-      ![
-        'conference',
-        'mantram',
-        'event',
-      ].includes(
-        eventType,
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Invalid event type.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    if (
-      !isBookingTemplate(
-        bookingTemplateValue,
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Invalid registration form template.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    if (
-      !Number.isInteger(
-        numberOfDays,
-      ) ||
-      numberOfDays < 1 ||
-      numberOfDays > 10
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Number of days must be between 1 and 10.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const startDate =
-      new Date(
-        startDateValue,
-      );
-
-    const endDate =
-      new Date(
-        endDateValue,
-      );
-
-    if (
-      Number.isNaN(
-        startDate.getTime(),
-      ) ||
-      Number.isNaN(
-        endDate.getTime(),
-      )
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Invalid event dates.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const daysJson =
-      String(
-        formData.get(
-          'daySchedules',
-        ) || '[]',
-      );
-
-    let daySchedulesInput:
-      DayScheduleInput[];
-
-    try {
-      daySchedulesInput =
-        JSON.parse(
-          daysJson,
-        );
-    } catch {
-      return NextResponse.json(
-        {
-          success: false,
-
-          error:
-            'Invalid day schedule data.',
-        },
-        {
-          status: 400,
-        },
-      );
-    }
-
-    const scheduleError = validateEventSchedules(startDateValue, endDateValue, numberOfDays, daySchedulesInput, timeZone);
-    if (scheduleError) {
-      return NextResponse.json({ success: false, error: scheduleError }, { status: 400 });
-    }
-
-    const thumbnailEntry =
-      formData.get(
-        'thumbnail',
-      );
-
-    let imageUrl = '';
-
-    if (
-      thumbnailEntry instanceof
-        File &&
-      thumbnailEntry.size > 0
-    ) {
-      imageUrl =
-        await uploadImageToS3(
-          thumbnailEntry,
-          'thumbnails',
-        );
-    }
-
-    const newEvent =
-      new Event({
-        eventName,
-
-        eventType,
-
-        bookingFormTemplate:
-          bookingTemplateValue,
-
-        venue,
-
-        description,
-
-        imageUrl,
-
-        numberOfDays,
-
-        startDate,
-
-        endDate,
-        timeZone,
-
-        status:
-          getEventStatus(
-            startDate,
-            endDate,
-            new Date(), timeZone,
-          ),
-      });
-
-    await newEvent.save();
-
-    try {
-      const scheduleDocs =
-        daySchedulesInput.map(
-          (scheduleData, index) =>
-            new DaySchedule({
-            eventId:
-              newEvent._id,
-            dayNumber:
-              index + 1,
-            date:
-              new Date(
-                scheduleData.date,
-              ),
-            startTime:
-              scheduleData.startTime,
-            endTime:
-              scheduleData.endTime,
-            lunchEnabled:
-              Boolean(
-                scheduleData.lunchEnabled,
-              ),
-            lunchStart:
-              scheduleData.lunchStart ||
-              '',
-            lunchEnd:
-              scheduleData.lunchEnd ||
-              '',
-            slotDuration:
-              Number(
-                scheduleData.slotDuration,
-              ),
-            slotGap:
-              Number(
-                scheduleData.slotGap,
-              ),
-            capacity:
-              Number(
-                scheduleData.capacity,
-              ),
-            sameAsDay1:
-              Boolean(
-                scheduleData.sameAsDay1,
-              ),
-            }),
-        );
-
-      await DaySchedule.insertMany(
-        scheduleDocs,
-      );
-
-      const slotDocs = scheduleDocs.flatMap(
-        (schedule, index) => {
-          const scheduleData =
-            daySchedulesInput[index];
-          const generatedSlots =
-            generateSlotTimes(
-              scheduleData.startTime,
-              scheduleData.endTime,
-              scheduleData.slotDuration,
-              scheduleData.slotGap,
-              scheduleData.lunchEnabled,
-              scheduleData.lunchStart,
-              scheduleData.lunchEnd,
-            );
-
-          return generatedSlots.map((slot) => ({
-              eventId:
-                newEvent._id,
-              dayScheduleId:
-                schedule._id,
-              startTime:
-                slot.startTime,
-              endTime:
-                slot.endTime,
-              capacity:
-                Number(
-                  scheduleData.capacity,
-                ),
-              bookedCount:
-                0,
-            }));
-        },
-      );
-
-      if (slotDocs.length > 0) {
-        await Slot.insertMany(slotDocs);
-      }
-    } catch (error) {
-      await Promise.all([
-        Slot.deleteMany({
-          eventId:
-            newEvent._id,
-        }),
-
-        DaySchedule.deleteMany(
-          {
-            eventId:
-              newEvent._id,
-          },
-        ),
-
-        Event.deleteOne({
-          _id:
-            newEvent._id,
-        }),
-      ]);
-
-      throw error;
-    }
-
-    emitRealtimeChange({
-      resource:
-        'events',
-
-      action:
-        'created',
-
-      id:
-        newEvent._id.toString(),
-    });
-
-    await logAdminActivity({
-      action: 'create',
-      resource: 'event',
-      resourceId: newEvent._id.toString(),
-      details: { eventName: newEvent.eventName },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-
-        message:
-          'Event and relational schedules created successfully',
-
-        eventId:
-          newEvent._id.toString(),
-
-        bookingFormTemplate:
-          newEvent.bookingFormTemplate,
-
-        imageUrl:
-          newEvent.imageUrl
-            ? getPublicImageUrl(
-                newEvent._id.toString(),
-                newEvent.updatedAt,
-              )
-            : '',
-      },
-      {
-        status: 201,
-
-        headers: {
-          'Cache-Control':
-            'no-store',
-        },
-      },
-    );
-  } catch (
-    error: unknown
-  ) {
-    console.error(
-      'Failed to create event:',
-      error,
-    );
-
-    return NextResponse.json(
-      {
-        success: false,
-
-        error:
-          getErrorMessage(
-            error,
-          ),
-      },
-      {
-        status: 500,
-      },
-    );
+    const event = await createEvent(input, imageUrl);
+    const id = String(event._id);
+    emitRealtimeChange({ resource: 'events', action: 'created', id });
+    await logAdminActivity({ action: 'create', resource: 'event', resourceId: id, details: { eventName: event.eventName } });
+    return NextResponse.json({ success: true, message: 'Event created successfully.', eventId: id,
+      bookingFormTemplate: event.bookingFormTemplate, imageUrl: event.imageUrl ? getPublicImageUrl(id, event.updatedAt) : '' },
+      { status: 201, headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    if (!(error instanceof BookingError)) console.error('Event creation failed:', error);
+    return NextResponse.json({ success: false, error: error instanceof BookingError ? error.message : 'Unable to create the event. Please retry.' },
+      { status: error instanceof BookingError ? error.status : 500 });
   }
 }

@@ -4164,6 +4164,7 @@ function EventStatus({
 }: {
   status: string;
 }) {
+  if (status === 'CANCELLED') return <span className="badge badge--info shrink-0">Cancelled</span>;
   if (
     status ===
     'LIVE'

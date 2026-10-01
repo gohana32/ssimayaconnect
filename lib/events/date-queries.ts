@@ -5,7 +5,7 @@ import type { Types } from 'mongoose';
 /** Mongo comparisons use the event's local day, including legacy India events. */
 export function liveEventFilter(now = new Date()) {
   const today = { $dateToString: { date: now, format: '%Y-%m-%d', timezone: { $ifNull: ['$timeZone', DEFAULT_TIME_ZONE] } } };
-  return { $expr: { $and: [
+  return { status: { $ne: 'CANCELLED' as const }, $expr: { $and: [
     { $lte: [{ $dateToString: { date: '$startDate', format: '%Y-%m-%d', timezone: 'UTC' } }, today] },
     { $gte: [{ $dateToString: { date: '$endDate', format: '%Y-%m-%d', timezone: 'UTC' } }, today] },
   ] } };

@@ -318,7 +318,7 @@ export async function GET() {
 
     const upcomingEvents =
       events
-        .filter(event => event.status !== 'COMPLETED')
+        .filter(event => event.status === 'LIVE' || event.status === 'UPCOMING')
         .slice(
           0,
           3,

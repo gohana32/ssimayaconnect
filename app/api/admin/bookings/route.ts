@@ -459,7 +459,7 @@ export async function GET(
                       '',
 
                     status:
-                      getEventStatus(raw.eventId.startDate, raw.eventId.endDate, new Date(), raw.eventId.timeZone),
+                      getEventStatus(raw.eventId.startDate, raw.eventId.endDate, new Date(), raw.eventId.timeZone, raw.eventId.status),
                     timeZone: eventTimeZone(raw.eventId.timeZone),
                   }
                 : null,

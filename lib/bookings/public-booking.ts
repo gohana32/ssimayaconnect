@@ -9,7 +9,7 @@ import type { BookingDetails, ServerBooking } from '@/lib/booking-contracts';
 type PopulatedBooking = {
   _id: unknown; bookingId: string; details: BookingDetails;
   attendanceStatus: 'PRESENT' | 'NOT_PRESENT'; checkedInAt?: Date; checkedInBy?: string; checkInMethod?: string;
-  eventId: { _id: unknown; eventName: string; venue: string; timeZone?: string; imageUrl?: string; updatedAt?: Date } | null;
+  eventId: { _id: unknown; eventName: string; venue: string; timeZone?: string; status?: string; imageUrl?: string; updatedAt?: Date } | null;
   slotId: { _id: unknown; startTime: string; endTime: string } | null;
   dayScheduleId: { _id: unknown; date: Date } | null;
 };
@@ -17,7 +17,7 @@ type PopulatedBooking = {
 export async function loadPublicBooking(bookingId: string): Promise<ServerBooking | null> {
   const booking = await Booking.findOne({ bookingId })
     .select('-requestKeyHash -requestFingerprint')
-    .populate('eventId', 'eventName venue timeZone imageUrl updatedAt')
+    .populate('eventId', 'eventName venue timeZone imageUrl updatedAt status')
     .populate('slotId', 'startTime endTime')
     .populate('dayScheduleId', 'date')
     .lean() as unknown as PopulatedBooking | null;
@@ -39,8 +39,8 @@ export async function loadPublicBooking(bookingId: string): Promise<ServerBookin
     attendanceStatus: booking.attendanceStatus || 'NOT_PRESENT',
     checkedInAt: booking.checkedInAt ? new Date(booking.checkedInAt).toISOString() : null,
     checkedInBy: booking.checkedInBy || '', checkInMethod: booking.checkInMethod || '',
-    status: booking.attendanceStatus === 'PRESENT' ? 'ATTENDED'
+    status: event?.status === 'CANCELLED' ? 'CANCELLED' : booking.attendanceStatus === 'PRESENT' ? 'ATTENDED'
       : !event || !slot || !day || hasSlotEnded(day.date, slot.endTime, new Date(), timeZone) ? 'EXPIRED' : 'ACTIVE',
-    qrData: JSON.stringify({ type: 'SSI_MAYA_CONNECT_ATTENDANCE', doctorId: id, bookingId, eventId }),
+    qrData: event?.status === 'CANCELLED' ? '' : JSON.stringify({ type: 'SSI_MAYA_CONNECT_ATTENDANCE', doctorId: id, bookingId, eventId }),
   };
 }

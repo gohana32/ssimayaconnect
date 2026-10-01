@@ -219,7 +219,8 @@ export default function BookingConfirmationPage() {
       bookingMongoId,
     );
 
-  const active =
+  const cancelled = serverBooking?.status === 'CANCELLED';
+  const active = !cancelled &&
     attendanceStatus ===
     'PRESENT';
 
@@ -502,7 +503,7 @@ export default function BookingConfirmationPage() {
               0,
           }}
           className={`
-            ${bookingReady ? 'max-md:hidden' : ''}
+            ${bookingReady && !cancelled ? 'max-md:hidden' : ''}
             flex
 
             items-center
@@ -584,7 +585,7 @@ export default function BookingConfirmationPage() {
               "
             >
               {bookingReady
-                ? 'Booking Confirmed!'
+                ? cancelled ? 'Event Cancelled' : 'Booking Confirmed!'
                 : bookingState ===
                     'error'
                   ? 'Unable to Verify Booking'
@@ -604,7 +605,7 @@ export default function BookingConfirmationPage() {
               "
             >
               {bookingReady
-                ? 'Your booking has been saved successfully.'
+                ? cancelled ? 'Booking history is retained. This ticket is not valid for admission.' : 'Your booking has been saved successfully.'
                 : bookingState ===
                     'error'
                   ? 'Please retry or recover your ticket in My Tickets.'
@@ -900,7 +901,7 @@ export default function BookingConfirmationPage() {
                       }
                     `}
                   >
-                    <QRCodeSVG
+                    {cancelled ? <p className="max-w-[170px] font-semibold text-red-700">Event cancelled. Not valid for admission.</p> : (<QRCodeSVG
                       value={
                         qrValue
                       }
@@ -914,7 +915,7 @@ export default function BookingConfirmationPage() {
                       bgColor="#FFFFFF"
                       fgColor="#000000"
                       className="max-md:h-[136px] max-md:w-[136px]"
-                    />
+                    />)}
                   </div>
 
                   <p
@@ -934,7 +935,7 @@ export default function BookingConfirmationPage() {
                       text-amber-700
                     "
                   >
-                    Your Entry Pass
+                    {cancelled ? 'Cancelled booking' : 'Your Entry Pass'}
                   </p>
 
                   <p
@@ -1004,7 +1005,7 @@ export default function BookingConfirmationPage() {
                       `}
                     />
 
-                    {active
+                    {cancelled ? 'Cancelled' : active
                       ? 'Checked In'
                       : 'Ready for Venue Scan'}
                   </span>
@@ -1024,7 +1025,7 @@ export default function BookingConfirmationPage() {
                       text-gray-500
                     "
                   >
-                    {active
+                    {cancelled ? 'Contact event staff for assistance.' : active
                       ? 'Attendance verified successfully.'
                       : 'Present this QR code at the venue for attendance verification.'}
                   </p>
@@ -1156,7 +1157,7 @@ export default function BookingConfirmationPage() {
                         `}
                       />
 
-                      {active
+                      {cancelled ? 'Cancelled' : active
                         ? 'Checked in'
                         : 'Ready'}
                     </span>
@@ -1316,7 +1317,7 @@ export default function BookingConfirmationPage() {
                   md:flex
                 "
               >
-                <DownloadButton
+                {!cancelled && (<DownloadButton
                   downloading={
                     downloading
                   }
@@ -1326,7 +1327,7 @@ export default function BookingConfirmationPage() {
                   onClick={
                     handleDownload
                   }
-                />
+                />)}
 
                 <BackButton
                   onClick={() =>
@@ -1376,7 +1377,7 @@ export default function BookingConfirmationPage() {
                     [&>*]:flex-1
                   "
                 >
-                  <DownloadButton
+                  {!cancelled && (<DownloadButton
                     downloading={
                       downloading
                     }
@@ -1386,7 +1387,7 @@ export default function BookingConfirmationPage() {
                     onClick={
                       handleDownload
                     }
-                  />
+                  />)}
 
                   <BackButton
                     onClick={() =>

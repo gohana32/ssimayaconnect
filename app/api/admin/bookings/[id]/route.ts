@@ -483,7 +483,7 @@ async function getBooking(
     .lean();
   if (booking && isRecord(booking.eventId)) {
     const event = booking.eventId;
-    if (event.startDate && event.endDate) event.status = getEventStatus(new Date(String(event.startDate)), new Date(String(event.endDate)), new Date(), String(event.timeZone || 'Asia/Kolkata'));
+    if (event.startDate && event.endDate) event.status = getEventStatus(new Date(String(event.startDate)), new Date(String(event.endDate)), new Date(), String(event.timeZone || 'Asia/Kolkata'), String(event.status));
   }
   return booking;
 }

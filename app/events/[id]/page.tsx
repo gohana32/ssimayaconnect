@@ -80,7 +80,8 @@ interface EventDetails {
   status:
     | 'LIVE'
     | 'UPCOMING'
-    | 'COMPLETED';
+    | 'COMPLETED'
+    | 'CANCELLED';
 
   totalSlots: number;
 
@@ -395,8 +396,7 @@ export default function EventDetailsPage() {
   }
 
   const canBook =
-    event.status !==
-    'COMPLETED';
+    event.status === 'LIVE' || event.status === 'UPCOMING';
 
   return (
     <main

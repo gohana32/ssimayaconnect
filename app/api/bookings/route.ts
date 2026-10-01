@@ -157,7 +157,8 @@ export async function POST(request: NextRequest) {
         if (existing.requestFingerprint !== requestFingerprint) throw new BookingError(409, 'This retry key belongs to different booking details. Start a new booking.');
         return { bookingId: existing.bookingId, existing: true };
       }
-      if (getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone) === 'COMPLETED') {
+      if (event.status === 'CANCELLED') throw new BookingError(409, 'This event has been cancelled. Tickets are not valid for admission.');
+      if (getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone, event.status) === 'COMPLETED') {
         throw new BookingError(409, 'This event is not currently accepting bookings.');
       }
       const schedule = await DaySchedule.findOne({ _id: dayScheduleId, eventId }).session(session);

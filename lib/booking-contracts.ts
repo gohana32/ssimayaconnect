@@ -22,7 +22,7 @@ export type ServerBooking = {
   startTime: string;
   endTime: string;
   details: BookingDetails;
-  status: 'ACTIVE' | 'EXPIRED' | 'ATTENDED';
+  status: 'ACTIVE' | 'EXPIRED' | 'ATTENDED' | 'CANCELLED';
   qrData: string;
   checkedInBy: string;
   checkInMethod: string;

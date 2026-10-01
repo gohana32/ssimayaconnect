@@ -2,13 +2,22 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { normalizePhone, phoneIdentity, isValidPhone, normalizeEmail, isValidEmail } from '../../lib/phone';
 import { validateEventSchedules, validateSchedule, type ScheduleInput } from '../../lib/events/schedule-validation';
-import { generateSlotTimes, timeToMinutes } from '../../lib/events/slots';
+import { generateSlotTimes, generateSlotPreview, timeToMinutes } from '../../lib/events/slots';
 
 const day: ScheduleInput = {
   date: '2026-10-01', startTime: '08:00', endTime: '18:00',
   lunchEnabled: true, lunchStart: '12:00', lunchEnd: '13:00',
   slotDuration: '30', slotGap: '10', capacity: '5', sameAsDay1: false,
 };
+
+test('create and edit previews reject invalid numbers and produce bounded valid times', () => {
+  for (const key of ['slotDuration', 'slotGap', 'capacity']) {
+    for (const value of ['-1', '0.5', '5e-324', 'Infinity', 'NaN', '1441']) {
+      assert.deepEqual(generateSlotPreview({ ...day, [key]: value }), []);
+    }
+  }
+  assert.deepEqual(generateSlotPreview({ ...day, startTime: '00:00', endTime: '01:00', slotGap: '0', lunchEnabled: false }), ['00:00 – 00:30', '00:30 – 01:00']);
+});
 
 test('phone identity retains country codes and ignores formatting, never suffixes', () => {
   assert.equal(phoneIdentity('98765 43210', '+91'), '919876543210');

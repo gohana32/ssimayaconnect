@@ -207,7 +207,7 @@ export async function GET(
 
 
                     available:
-                      remaining > 0 &&
+                      event.status !== 'CANCELLED' && remaining > 0 &&
                       !hasSlotEnded(schedule.date, slot.endTime, new Date(), event.timeZone),
                   };
                 },
@@ -241,7 +241,7 @@ export async function GET(
             event.endDate,
 
           status:
-            getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone),
+            getEventStatus(event.startDate, event.endDate, new Date(), event.timeZone, event.status),
         },
 
         days,

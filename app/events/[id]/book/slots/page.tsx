@@ -75,7 +75,8 @@ type SlotEvent = {
   status:
     | 'LIVE'
     | 'UPCOMING'
-    | 'COMPLETED';
+    | 'COMPLETED'
+    | 'CANCELLED';
 };
 
 type SlotsResponse = {
@@ -413,8 +414,8 @@ export default function TimeSlotsPage() {
 
   function handleContinue() {
     if (
-      !selectedDay ||
-      !selectedSlot
+      event?.status === 'CANCELLED' || !selectedDay ||
+      !selectedSlot || !selectedSlot.available
     ) {
       setError(
         'Please select an available time slot.',
@@ -519,6 +520,12 @@ export default function TimeSlotsPage() {
         }
       />
     );
+  }
+
+  if (event?.status === 'CANCELLED') {
+    return <main className="mx-auto max-w-xl p-8 text-center"><h1 className="text-xl font-bold">Event cancelled</h1>
+      <p className="my-4">Bookings are closed. Existing tickets are not valid for admission.</p>
+      <button type="button" onClick={() => router.push('/events')}>Back to events</button></main>;
   }
 
   if (!event) {
