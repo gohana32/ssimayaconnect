@@ -522,7 +522,7 @@ export default function EventsPage() {
   function openFeedback() {
     try {
       const cached =
-        localStorage.getItem(
+        sessionStorage.getItem(
           TICKET_CACHE,
         );
       const tickets =
@@ -568,27 +568,12 @@ export default function EventsPage() {
       string,
     bookingId:
       string,
-    bookingMongoId:
-      string,
   ) {
     setShowFeedbackPicker(
       false,
     );
 
-    sessionStorage.setItem(
-      `ssi-feedback-booking-id:${eventId}`,
-      bookingId,
-    );
-    sessionStorage.setItem(
-      `ssi-feedback-booking-mongo-id:${eventId}`,
-      bookingMongoId,
-    );
-
-    router.push(
-      `/events/${encodeURIComponent(
-        eventId,
-      )}/book/feedback?scope=event`,
-    );
+    router.push(`/events/${encodeURIComponent(eventId)}/book/feedback?scope=event&bookingId=${encodeURIComponent(bookingId)}`);
   }
 
   /* ==========================================================

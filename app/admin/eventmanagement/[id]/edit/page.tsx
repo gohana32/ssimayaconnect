@@ -41,7 +41,7 @@ import {
   isBookingFormTemplate,
 } from '@/app/components/admin/booking-templates/types';
 
-import { useFormDraft } from '@/lib/use-form-draft';
+import { useEventDraft } from '@/lib/use-event-draft';
 import { prepareImageForUpload } from '@/lib/image-upload';
 
 /* ============================================================
@@ -473,12 +473,7 @@ export default function EditEventPage() {
     setLoadError,
   ] = useState('');
 
-  useFormDraft(
-    initialLoading
-      ? ''
-      : `ssi-event-draft:edit:${eventId}`,
-    formRef,
-  );
+
 
   /* ==========================================================
      EVENT
@@ -594,6 +589,19 @@ export default function EditEventPage() {
     selectedDayIndex,
     setSelectedDayIndex,
   ] = useState(0);
+
+  const eventDraft = useEventDraft(`ssi-event-draft:edit:${eventId}`,
+    { eventName, eventType, bookingFormTemplate, venue, description, numberOfDays, startDate, timeZone, daySchedules, selectedDayIndex },
+    selectedThumbnail, (saved, thumbnail) => {
+      setEventName(saved.eventName); setEventType(saved.eventType); setBookingFormTemplate(saved.bookingFormTemplate);
+      setVenue(saved.venue); setDescription(saved.description); setNumberOfDays(saved.numberOfDays);
+      setStartDate(saved.startDate); setTimeZone(saved.timeZone); setDaySchedules(saved.daySchedules); setSelectedDayIndex(saved.selectedDayIndex);
+      if (thumbnail) {
+        setSelectedThumbnail(thumbnail);
+        setThumbnailPreview({ name: thumbnail.name, url: URL.createObjectURL(thumbnail), local: true });
+      }
+    }, !initialLoading && !loadError);
+
 
   /* ==========================================================
      LOAD EVENT
@@ -1518,6 +1526,7 @@ export default function EditEventPage() {
         null,
       );
 
+      await eventDraft.clear();
       setSubmissionState(
         'success',
       );
@@ -1681,6 +1690,8 @@ export default function EditEventPage() {
   /* ==========================================================
      PAGE
   ========================================================== */
+
+  if (!eventDraft.ready) return <p className="p-6 text-sm text-gray-500">Loading event draft...</p>;
 
   return (
     <motion.form

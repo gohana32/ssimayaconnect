@@ -47,6 +47,7 @@ export const ticketStorage = {
 } as const;
 
 export const bookingStorage = {
+  country: (eventId: string) => `ssi-booking-country:${eventId}`,
   details: (eventId: string) => `ssi-booking-details:${eventId}`,
   draft: (eventId: string) => `ssi-booking-draft:${eventId}`,
   intent: (eventId: string) => `ssi-booking-intent:${eventId}`,

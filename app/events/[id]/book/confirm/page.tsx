@@ -1,6 +1,6 @@
 'use client';
 
-import { type BookingDetails as SharedBookingDetails, type ServerBooking, type BookingApiResponse, bookingStorage } from '@/lib/booking-contracts';
+import { type BookingDetails as SharedBookingDetails, type ServerBooking, type BookingApiResponse, bookingStorage, ticketStorage } from '@/lib/booking-contracts';
 
 import { attendeeIdentity, bookingRequestData } from '@/lib/bookings/identity';
 import { calendarDateFormatter, eventTimeZone } from '@/lib/events/dates';
@@ -161,6 +161,14 @@ export default function BookingConfirmationPage() {
         setBookingError('');
         try {
           if (intent) sessionStorage.setItem(bookingStorage.intent(eventId), JSON.stringify({ ...intent, bookingId: confirmed.bookingId }));
+          if (!requestedReference) {
+            sessionStorage.removeItem(bookingStorage.draft(eventId));
+            sessionStorage.removeItem(bookingStorage.country(eventId));
+          }
+          const cachedTickets = JSON.parse(sessionStorage.getItem(ticketStorage.tickets) || '[]');
+          sessionStorage.setItem(ticketStorage.tickets, JSON.stringify([
+            ...(Array.isArray(cachedTickets) ? cachedTickets.filter(ticket => ticket.bookingId !== confirmed.bookingId) : []), confirmed,
+          ]));
           // Retain references for existing feedback URLs and earlier browser versions.
           sessionStorage.setItem(`ssi-server-booking-id:${eventId}:latest`, confirmed.bookingId);
           sessionStorage.setItem(`ssi-server-booking-mongo-id:${eventId}:latest`, confirmed.id);
