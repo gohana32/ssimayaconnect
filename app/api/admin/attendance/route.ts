@@ -1,6 +1,9 @@
 import { BookingError, lockBookingEvent } from '@/lib/bookings/mutations';
 import { getEventStatus } from '@/lib/events/status';
 import { liveEventFilter } from '@/lib/events/date-queries';
+import { checkInWindow } from '@/lib/events/check-in';
+import { DaySchedule } from '@/models/DaySchedule';
+import { Slot } from '@/models/Slot';
 import mongoose from 'mongoose';
 
 import {
@@ -661,6 +664,11 @@ export async function POST(
       }
       const booking = await Booking.findOne(query).session(session);
       if (!booking) throw new BookingError(404, 'Ticket not found for the selected event.');
+      const day = await DaySchedule.findOne({ _id: booking.dayScheduleId, eventId }).session(session).lean();
+      const slot = await Slot.findOne({ _id: booking.slotId, eventId, dayScheduleId: booking.dayScheduleId }).session(session).lean();
+      if (!day || !slot) throw new BookingError(409, 'The reserved date or slot is no longer available. Ask event staff for assistance.');
+      const window = checkInWindow(day.date, slot.startTime, slot.endTime, event.timeZone);
+      if (!window.allowed) throw new BookingError(409, window.message);
       if (booking.attendanceStatus === 'PRESENT') return { booking, alreadyPresent: true };
       booking.attendanceStatus = 'PRESENT';
       booking.checkedInAt = new Date();

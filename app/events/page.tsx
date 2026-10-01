@@ -18,6 +18,7 @@ import {
   useEffect,
   memo,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -194,12 +195,16 @@ export default function EventsPage() {
      LOAD EVENTS
   ========================================================== */
 
+  const [loadError, setLoadError] = useState('');
+  const eventRequest = useRef<AbortController | null>(null);
   const fetchEvents =
     useCallback(
       async (
         showInitialLoading =
           true,
       ) => {
+        eventRequest.current?.abort();
+        const controller = new AbortController(); eventRequest.current = controller;
         if (
           showInitialLoading
         ) {
@@ -219,6 +224,7 @@ export default function EventsPage() {
               ? '/api/events'
               : `/api/events?refresh=${Date.now()}`,
             {
+              signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
               method:
                 'GET',
 
@@ -232,6 +238,7 @@ export default function EventsPage() {
           const data =
             await response.json();
 
+          if (controller.signal.aborted) return;
           if (
             !response.ok ||
             !data.success
@@ -242,6 +249,7 @@ export default function EventsPage() {
             );
           }
 
+          setLoadError('');
           setEvents(
             Array.isArray(
               data.events,
@@ -270,15 +278,15 @@ export default function EventsPage() {
         } catch (
           error
         ) {
+          if (controller.signal.aborted) return;
           console.error(
             'Failed to fetch events:',
             error,
           );
 
-          setEvents(
-            [],
-          );
+          setLoadError(error instanceof Error ? error.message : 'Unable to load events. Please retry.');
         } finally {
+          if (!controller.signal.aborted) {
           setLoading(
             false,
           );
@@ -286,12 +294,14 @@ export default function EventsPage() {
           setRefreshing(
             false,
           );
+          }
         }
       },
       [],
     );
 
   useEffect(() => {
+    const timers: number[] = [];
     let hasCachedEvents =
       false;
 
@@ -308,10 +318,10 @@ export default function EventsPage() {
         if (
           Array.isArray(parsed)
         ) {
-          window.setTimeout(() => {
+          timers.push(window.setTimeout(() => {
             setEvents((parsed as IEvent[]).filter(event => event.status !== 'CANCELLED'));
             setLoading(false);
-          }, 0);
+          }, 0));
           hasCachedEvents = true;
         }
       }
@@ -322,11 +332,12 @@ export default function EventsPage() {
       );
     }
 
-    window.setTimeout(() => {
+    timers.push(window.setTimeout(() => {
       void fetchEvents(
         !hasCachedEvents,
       );
-    }, 0);
+    }, 0));
+    return () => { timers.forEach(clearTimeout); eventRequest.current?.abort(); };
   }, [
     fetchEvents,
   ]);
@@ -1204,6 +1215,9 @@ export default function EventsPage() {
             LOADING
         ==================================================== */}
 
+        {loadError && <div role="alert" className="my-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+          {loadError} <button type="button" className="ml-3 underline" onClick={() => { void fetchEvents(false); }}>Try again</button>
+        </div>}
         {loading ? (
           <div
             className="
@@ -1214,7 +1228,7 @@ export default function EventsPage() {
           >
             <LoadingState />
           </div>
-        ) : events.length ===
+        ) : loadError && events.length === 0 ? null : events.length ===
           0 ? (
           /* ==================================================
              NO EVENTS AT ALL

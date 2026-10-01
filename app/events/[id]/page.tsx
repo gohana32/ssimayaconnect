@@ -154,6 +154,7 @@ export default function EventDetailsPage() {
      FETCH
   ============================================================ */
 
+  const eventRequest = useRef<AbortController | null>(null);
   const fetchEvent =
     useCallback(
       async (
@@ -163,6 +164,8 @@ export default function EventDetailsPage() {
           return;
         }
 
+        eventRequest.current?.abort();
+        const controller = new AbortController(); eventRequest.current = controller;
         if (showLoading) {
           setLoading(true);
         }
@@ -180,6 +183,7 @@ export default function EventDetailsPage() {
                   : `?refresh=${Date.now()}`
               }`,
               {
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
                 method:
                   'GET',
 
@@ -193,6 +197,8 @@ export default function EventDetailsPage() {
           const data =
             await response.json();
 
+          if (controller.signal.aborted) return;
+          if (response.status === 404) setEvent(null);
           if (
             !response.ok ||
             !data.success ||
@@ -210,6 +216,7 @@ export default function EventDetailsPage() {
         } catch (
           error: unknown
         ) {
+          if (controller.signal.aborted) return;
           console.error(
             'Event loading error:',
             error,
@@ -221,9 +228,8 @@ export default function EventDetailsPage() {
               : 'Failed to load event.',
           );
 
-          setEvent(null);
         } finally {
-          if (showLoading) {
+          if (!controller.signal.aborted) {
             setLoading(
               false,
             );
@@ -241,7 +247,7 @@ export default function EventDetailsPage() {
     }, 0);
 
     return () => {
-      window.clearTimeout(timeoutId);
+      window.clearTimeout(timeoutId); eventRequest.current?.abort();
     };
   }, [
     fetchEvent,
@@ -308,7 +314,6 @@ export default function EventDetailsPage() {
   }
 
   if (
-    error ||
     !event
   ) {
     return (
@@ -408,6 +413,9 @@ export default function EventDetailsPage() {
         md:pb-10
       "
     >
+      {error && <div role="alert" className="m-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+        {error} <button type="button" className="ml-3 underline" onClick={() => { void fetchEvent(false); }}>Try again</button>
+      </div>}
       {/* HEADER */}
 
       <header

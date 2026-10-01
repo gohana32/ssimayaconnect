@@ -1420,7 +1420,7 @@ export default function EventsManagementPage() {
                   text-secondary
                 "
               >
-                No events found
+                {error ? 'Events could not be loaded' : 'No events found'}
               </h2>
 
               <p

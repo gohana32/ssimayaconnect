@@ -14,6 +14,7 @@ import type {
 import {
   useCallback,
   useEffect,
+  useRef,
   useMemo,
   useState,
 } from 'react';
@@ -226,16 +227,6 @@ export default function AdminBookingsPage() {
     setError,
   ] = useState('');
 
-  useRealtimeRefresh(
-    'bookings',
-    () => {
-      void loadBookings(
-        undefined,
-        true,
-      );
-    },
-  );
-
   /* ==========================================================
      DELETE
   ========================================================== */
@@ -257,12 +248,17 @@ export default function AdminBookingsPage() {
      LOAD BOOKINGS
   ========================================================== */
 
+  const bookingRequest = useRef<AbortController | null>(null);
   const loadBookings =
     useCallback(
       async (
         signal?: AbortSignal,
         refresh = false,
       ) => {
+        bookingRequest.current?.abort();
+        const controller = new AbortController(); bookingRequest.current = controller;
+        const externalSignal = signal;
+        signal = AbortSignal.any([controller.signal, ...(externalSignal ? [externalSignal] : []), AbortSignal.timeout(15000)]);
         if (refresh) {
           setRefreshing(
             true,
@@ -335,6 +331,7 @@ export default function AdminBookingsPage() {
           const data =
             (await response.json()) as BookingsResponse;
 
+          if (controller.signal.aborted || externalSignal?.aborted) return;
           if (
             !response.ok ||
             !data.success
@@ -378,6 +375,7 @@ export default function AdminBookingsPage() {
               0,
           );
         } catch (err) {
+          if (controller.signal.aborted || externalSignal?.aborted) return;
           if (
             err instanceof
               DOMException &&
@@ -400,7 +398,7 @@ export default function AdminBookingsPage() {
           );
         } finally {
           if (
-            !signal?.aborted
+            !controller.signal.aborted && !externalSignal?.aborted
           ) {
             setLoading(
               false,
@@ -420,16 +418,27 @@ export default function AdminBookingsPage() {
       ],
     );
 
+  useRealtimeRefresh(
+    'bookings',
+    () => {
+      void loadBookings(
+        undefined,
+        true,
+      );
+    },
+  );
+
+  useRealtimeRefresh('attendance', () => { void loadBookings(undefined, true); });
+  useRealtimeRefresh('events', () => { void loadBookings(undefined, true); });
+
   useEffect(() => {
     const controller =
       new AbortController();
 
-    void loadBookings(
-      controller.signal,
-    );
+    const timer = window.setTimeout(() => { void loadBookings(controller.signal); }, 0);
 
     return () => {
-      controller.abort();
+      clearTimeout(timer); controller.abort(); bookingRequest.current?.abort();
     };
   }, [
     loadBookings,
@@ -1174,16 +1183,15 @@ export default function AdminBookingsPage() {
 
               <button
                 type="button"
-                onClick={() =>
-                  setError('')
-                }
+                onClick={() => { void loadBookings(undefined, true); }}
+                aria-label="Retry loading bookings"
                 className="
                   shrink-0
                   cursor-pointer
                   text-red-500
                 "
               >
-                <CloseIcon />
+                Retry
               </button>
             </motion.div>
           )}
@@ -1337,7 +1345,7 @@ export default function AdminBookingsPage() {
               <tbody>
                 {loading ? (
                   <DesktopTableSkeleton />
-                ) : bookings.length ===
+                ) : error && !bookings.length ? null : bookings.length ===
                   0 ? (
                   <tr>
                     <td
@@ -1650,7 +1658,7 @@ export default function AdminBookingsPage() {
               <MobileCardSkeleton />
               <MobileCardSkeleton />
             </>
-          ) : bookings.length ===
+          ) : error && !bookings.length ? null : bookings.length ===
             0 ? (
             <div
               className="
@@ -3627,22 +3635,6 @@ function AlertIcon() {
   );
 }
 
-function CloseIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={2}
-    >
-      <path
-        strokeLinecap="round"
-        d="m7 7 10 10M17 7 7 17"
-      />
-    </svg>
-  );
-}
 
 function SpinnerIcon() {
   return (

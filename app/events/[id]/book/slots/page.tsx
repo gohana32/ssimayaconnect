@@ -146,8 +146,7 @@ export default function TimeSlotsPage() {
   ] =
     useState('');
 
-  const slotsRequestInFlightRef =
-    useRef(false);
+  const slotsRequest = useRef<AbortController | null>(null);
 
   /* ============================================================
      LOAD REAL DATABASE SLOTS
@@ -159,14 +158,13 @@ export default function TimeSlotsPage() {
         silent = false,
       ) => {
         if (
-          !eventId ||
-          slotsRequestInFlightRef.current
+          !eventId
         ) {
           return;
         }
 
-        slotsRequestInFlightRef.current =
-          true;
+        slotsRequest.current?.abort();
+        const controller = new AbortController(); slotsRequest.current = controller;
 
         if (!silent) {
           setLoading(true);
@@ -181,6 +179,7 @@ export default function TimeSlotsPage() {
                 eventId,
               )}/slots?refresh=${Date.now()}`,
               {
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
                 method:
                   'GET',
 
@@ -198,6 +197,8 @@ export default function TimeSlotsPage() {
             (await response.json()) as
               SlotsResponse;
 
+          if (controller.signal.aborted) return;
+          if (response.status === 404) { setEvent(null); setDays([]); }
           if (
             !response.ok ||
             !data.success ||
@@ -269,6 +270,7 @@ export default function TimeSlotsPage() {
         } catch (
           error: unknown
         ) {
+          if (controller.signal.aborted) return;
           console.error(
             'Time slot loading error:',
             error,
@@ -280,10 +282,7 @@ export default function TimeSlotsPage() {
               : 'Unable to load time slots.',
           );
         } finally {
-          slotsRequestInFlightRef.current =
-            false;
-
-          if (!silent) {
+          if (!controller.signal.aborted) {
             setLoading(false);
           }
         }
@@ -294,7 +293,8 @@ export default function TimeSlotsPage() {
     );
 
   useEffect(() => {
-    void loadSlots();
+    const timer = window.setTimeout(() => { void loadSlots(); }, 0);
+    return () => { clearTimeout(timer); slotsRequest.current?.abort(); };
   }, [
     loadSlots,
   ]);
@@ -1825,7 +1825,7 @@ export default function TimeSlotsPage() {
                     sm:text-xs
                   "
                 >
-                  {error}
+                  {error} <button type="button" className="ml-3 underline" onClick={() => { void loadSlots(true); }}>Retry</button>
                 </motion.div>
               )}
             </AnimatePresence>

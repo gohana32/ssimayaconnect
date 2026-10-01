@@ -33,6 +33,7 @@ import {
 } from 'recharts';
 
 import * as XLSX from 'xlsx';
+import { useRealtimeRefresh } from '@/components/realtime/RealtimeProvider';
 
 /* ============================================================
    TYPES
@@ -426,6 +427,10 @@ export default function ReportsPage() {
         filters,
       ],
     );
+
+  useRealtimeRefresh('events', () => { void loadReport(true); });
+  useRealtimeRefresh('bookings', () => { void loadReport(true); });
+  useRealtimeRefresh('attendance', () => { void loadReport(true); });
 
   useEffect(() => {
     void loadReport();

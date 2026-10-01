@@ -13,10 +13,12 @@ import type {
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
 import Link from 'next/link';
+import { useRealtimeRefresh } from '@/components/realtime/RealtimeProvider';
 
 import {
   motion,
@@ -151,11 +153,14 @@ export default function AdminDashboard() {
      LOAD DASHBOARD
   ========================================================== */
 
+  const dashboardRequest = useRef<AbortController | null>(null);
   const loadDashboard =
     useCallback(
       async (
         quiet = false,
       ) => {
+        dashboardRequest.current?.abort();
+        const controller = new AbortController(); dashboardRequest.current = controller;
         if (quiet) {
           setRefreshing(
             true,
@@ -173,6 +178,7 @@ export default function AdminDashboard() {
             await fetch(
               '/api/admin/dashboard',
               {
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
                 method:
                   'GET',
 
@@ -187,6 +193,7 @@ export default function AdminDashboard() {
           const data =
             (await response.json()) as DashboardResponse;
 
+          if (controller.signal.aborted) return;
           if (
             !response.ok ||
             !data.success
@@ -212,6 +219,7 @@ export default function AdminDashboard() {
               [],
           );
         } catch (err) {
+          if (controller.signal.aborted) return;
           console.error(
             'Dashboard load failed:',
             err,
@@ -224,6 +232,7 @@ export default function AdminDashboard() {
               : 'Unable to load dashboard.',
           );
         } finally {
+          if (!controller.signal.aborted) {
           setLoading(
             false,
           );
@@ -231,16 +240,22 @@ export default function AdminDashboard() {
           setRefreshing(
             false,
           );
+          }
         }
       },
       [],
     );
 
   useEffect(() => {
-    void loadDashboard();
+    const timer = window.setTimeout(() => { void loadDashboard(); }, 0);
+    return () => { clearTimeout(timer); dashboardRequest.current?.abort(); };
   }, [
     loadDashboard,
   ]);
+
+  useRealtimeRefresh('events', () => { void loadDashboard(true); });
+  useRealtimeRefresh('bookings', () => { void loadDashboard(true); });
+  useRealtimeRefresh('attendance', () => { void loadDashboard(true); });
 
   /* ==========================================================
      RENDER
@@ -893,8 +908,8 @@ export default function AdminDashboard() {
             ) : recentBookings.length ===
               0 ? (
               <DashboardEmpty
-                title="No bookings yet"
-                description="New registrations will appear here."
+                title={error ? 'Bookings could not be loaded' : 'No bookings yet'}
+                description={error ? 'Use Retry above to load the dashboard.' : 'New registrations will appear here.'}
               />
             ) : (
               recentBookings.map(
@@ -980,8 +995,7 @@ export default function AdminDashboard() {
                         text-gray-400
                       "
                     >
-                      No bookings
-                      found.
+                      {error ? 'Bookings could not be loaded.' : 'No bookings found.'}
                     </td>
                   </tr>
                 ) : (
