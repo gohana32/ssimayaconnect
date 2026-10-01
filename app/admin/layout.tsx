@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import type {
   ReactNode,
 } from 'react';
@@ -70,6 +72,8 @@ export default function AdminLayout({
     mobileSidebarOpen,
     setMobileSidebarOpen,
   ] = useState(false);
+
+  const navigationDialog = useDialog(mobileSidebarOpen, () => setMobileSidebarOpen(false), 'Admin navigation');
 
   /* ==========================================================
      AUTH & PERMISSION CHECK
@@ -566,7 +570,7 @@ export default function AdminLayout({
 
             {/* DRAWER */}
 
-            <motion.aside
+            <motion.aside {...navigationDialog}
               initial={{
                 x:
                   '-100%',

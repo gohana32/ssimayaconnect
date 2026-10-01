@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
 
 import { canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
@@ -247,6 +249,8 @@ export default function AdminBookingsPage() {
   /* ==========================================================
      LOAD BOOKINGS
   ========================================================== */
+
+  const deleteDialog = useDialog(!!deleteTarget, () => { if (!deleting) setDeleteTarget(null); }, 'Delete booking');
 
   const bookingRequest = useRef<AbortController | null>(null);
   const loadBookings =
@@ -2051,7 +2055,7 @@ export default function AdminBookingsPage() {
               backdrop-blur-[2px]
             "
           >
-            <motion.div
+            <motion.div {...deleteDialog}
               initial={{
                 opacity: 0,
                 scale: 0.97,
@@ -2799,7 +2803,7 @@ function Pagination({
           gap-1
         "
       >
-        <PaginationButton
+        <PaginationButton label="Previous page"
           disabled={
             page <= 1
           }
@@ -2902,7 +2906,7 @@ function Pagination({
           </>
         )}
 
-        <PaginationButton
+        <PaginationButton label="Next page"
           disabled={
             page >=
             totalPages
@@ -2922,11 +2926,13 @@ function Pagination({
 
 function PaginationButton({
   children,
+  label,
   onClick,
   active = false,
   disabled = false,
 }: {
   children: ReactNode;
+  label?: string;
   onClick: () => void;
   active?: boolean;
   disabled?: boolean;
@@ -2934,6 +2940,8 @@ function PaginationButton({
   return (
     <button
       type="button"
+      aria-label={label}
+      aria-current={active ? "page" : undefined}
       disabled={
         disabled
       }

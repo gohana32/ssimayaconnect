@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import Link from 'next/link';
 import { useAdminSession } from './AdminSessionContext';
 
@@ -212,6 +214,8 @@ export default function Sidebar({
       onNavigate();
     }
   }
+
+  const logoutDialog = useDialog(showLogoutModal, () => { if (!loggingOut) setShowLogoutModal(false); }, 'Log out');
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -737,7 +741,7 @@ export default function Sidebar({
 
       <AnimatePresence>
         {showLogoutModal && (
-          <motion.div
+          <motion.div {...logoutDialog}
             initial={{
               opacity: 0,
             }}

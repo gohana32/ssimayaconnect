@@ -1,5 +1,8 @@
 'use client';
 
+import { labelFieldControl } from '@/lib/field-control';
+import { useId } from 'react';
+
 import { generateSlotPreview as generateSlots } from '@/lib/events/slots';
 
 import { adminFetch as fetch } from '@/lib/admin-auth';
@@ -2537,7 +2540,7 @@ export default function CreateNewEventPage() {
                         </p>
                       </div>
 
-                      <Switch
+                      <Switch label="Same as Day 1"
                         checked={
                           activeSchedule.sameAsDay1
                         }
@@ -2812,7 +2815,7 @@ export default function CreateNewEventPage() {
                           </span>
                         </div>
 
-                        <Switch
+                        <Switch label="Lunch break"
                           checked={
                             activeSchedule.lunchEnabled
                           }
@@ -3247,6 +3250,7 @@ function Field({
   hint?: string;
   className?: string;
 }) {
+  const fieldId = useId();
   return (
     <div
       className={`
@@ -3264,7 +3268,7 @@ function Field({
           gap-2
         "
       >
-        <label
+        <label htmlFor={fieldId}
           className="
             text-[8px]
             font-semibold
@@ -3303,7 +3307,7 @@ function Field({
         )}
       </div>
 
-      {children}
+      {labelFieldControl(children, fieldId)}
     </div>
   );
 }
@@ -3317,6 +3321,7 @@ function ScheduleField({
   children: ReactNode;
   suffix?: string;
 }) {
+  const fieldId = useId();
   return (
     <div
       className="
@@ -3333,7 +3338,7 @@ function ScheduleField({
           gap-1
         "
       >
-        <label
+        <label htmlFor={fieldId}
           className="
             text-[8px]
             font-semibold
@@ -3357,7 +3362,7 @@ function ScheduleField({
         )}
       </div>
 
-      {children}
+      {labelFieldControl(children, fieldId)}
     </div>
   );
 }
@@ -3367,10 +3372,12 @@ function ScheduleField({
 ============================================================ */
 
 function Switch({
+  label,
   checked,
   disabled = false,
   onChange,
 }: {
+  label: string;
   checked: boolean;
 
   disabled?: boolean;
@@ -3385,6 +3392,7 @@ function Switch({
     <button
       type="button"
       role="switch"
+      aria-label={label}
       aria-checked={
         checked
       }

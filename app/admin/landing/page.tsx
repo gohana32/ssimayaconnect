@@ -2938,23 +2938,6 @@ function ReportIcon() {
   );
 }
 
-function BoltIcon() {
-  return (
-    <svg
-      className="h-[17px] w-[17px]"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.9}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="m13 2-8 12h6l-1 8 9-13h-6V2Z"
-      />
-    </svg>
-  );
-}
 
 function CalendarSmallIcon() {
   return (

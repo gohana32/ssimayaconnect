@@ -7,7 +7,7 @@ import { isValidPhone, normalizePhone } from '@/lib/phone';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+
 
 import {
   useCallback,
@@ -108,12 +108,7 @@ const TICKET_CACHE =
   ticketStorage.tickets;
 
 
-const EASE = [
-  0.16,
-  1,
-  0.3,
-  1,
-] as const;
+
 
 
 /* ============================================================
@@ -1042,7 +1037,7 @@ function TicketCard({
         {
           ticket.imageUrl ? (
 
-            <img
+            <Image width={1200} height={600} unoptimized
 
               src={
                 ticket.imageUrl
@@ -1284,77 +1279,4 @@ function StatusBadge({
 
   );
 
-}
-
-function MobileNavItem({
-  href,
-  label,
-  icon,
-  active = false,
-}: {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`
-        flex
-        min-h-[54px]
-        flex-col
-        items-center
-        justify-center
-        gap-1
-        text-[9px]
-        font-medium
-        transition-colors
-        ${active ? 'text-primary' : 'text-gray-400'}
-      `}
-    >
-      {icon}
-      <span>{label}</span>
-    </Link>
-  );
-}
-
-function HomeIcon() {
-  return (
-    <svg
-      className="h-[18px] w-[18px]"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.8}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1V10Z"
-      />
-    </svg>
-  );
-}
-
-function TicketIcon() {
-  return (
-    <svg
-      className="h-[18px] w-[18px]"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.8}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M5 5h14v4a3 3 0 0 0 0 6v4H5v-4a3 3 0 0 0 0-6V5Z"
-      />
-      <path
-        strokeLinecap="round"
-        d="M12 7v10"
-      />
-    </svg>
-  );
 }

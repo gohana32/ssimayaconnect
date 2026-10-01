@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
 
 import { canAdminCreate, canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
@@ -603,6 +605,8 @@ export default function BookingDetailsPage() {
   /* ============================================================
      DELETE
   ============================================================ */
+
+  const deleteDialog = useDialog(deleteOpen, () => { if (!deleting) setDeleteOpen(false); }, 'Delete booking');
 
   async function deleteBooking() {
     if (
@@ -1594,7 +1598,7 @@ export default function BookingDetailsPage() {
               }
             }}
           >
-            <motion.div
+            <motion.div {...deleteDialog}
               initial={{
                 opacity: 0,
                 y: 8,

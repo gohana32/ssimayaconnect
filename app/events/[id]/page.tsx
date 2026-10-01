@@ -755,7 +755,7 @@ export default function EventDetailsPage() {
             "
           >
             {event.imageUrl ? (
-              <img
+              <Image width={1200} height={600} unoptimized
                 src={
                   event.imageUrl
                 }

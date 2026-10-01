@@ -1,5 +1,8 @@
 'use client';
 
+import { labelFieldControl } from '@/lib/field-control';
+import { useId } from 'react';
+
 import { bookingStorage } from '@/lib/booking-contracts';
 
 import { isValidPhone, normalizePhone } from '@/lib/phone';
@@ -1313,7 +1316,9 @@ function CountrySelector({
       ref={dropdownRef}
       className="relative min-w-0"
     >
-      <button
+      <button id="residence-country"
+        aria-label={`Country: ${selected.name}`}
+        aria-expanded={open}
         type="button"
         disabled={loading}
         onClick={onToggle}
@@ -1546,7 +1551,7 @@ function SearchBox({
           />
         </svg>
 
-        <input
+        <input aria-label="Search countries"
           type="search"
           autoFocus
           value={value}
@@ -1673,9 +1678,11 @@ function Field({
   label: string;
   children: ReactNode;
 }) {
+  const generatedId = useId();
+  const fieldId = label === 'Country' ? 'residence-country' : generatedId;
   return (
     <div className="min-w-0">
-      <label
+      <label htmlFor={fieldId}
         className={
           labelClass
         }
@@ -1687,7 +1694,7 @@ function Field({
         </span>
       </label>
 
-      {children}
+      {labelFieldControl(children, fieldId)}
     </div>
   );
 }

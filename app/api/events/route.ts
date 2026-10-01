@@ -1,3 +1,4 @@
+import { validatedThumbnail, ImageValidationError } from '@/lib/image-validation';
 import { readEventForm, createEvent } from '@/lib/events/mutations';
 import { BookingError } from '@/lib/bookings/mutations';
 import { adminAccessError } from '@/lib/admin-api-auth';
@@ -239,8 +240,8 @@ export async function POST(req: NextRequest) {
   try {
     const form = await req.formData();
     const input = readEventForm(form);
-    const thumbnail = form.get('thumbnail');
-    const imageUrl = thumbnail instanceof File && thumbnail.size > 0 ? await uploadImageToS3(thumbnail, 'thumbnails') : '';
+    const thumbnail = await validatedThumbnail(form.get('thumbnail'));
+    const imageUrl = thumbnail ? await uploadImageToS3(thumbnail, 'thumbnails') : '';
     await connectDB();
     const event = await createEvent(input, imageUrl);
     const id = String(event._id);
@@ -250,8 +251,8 @@ export async function POST(req: NextRequest) {
       bookingFormTemplate: event.bookingFormTemplate, imageUrl: event.imageUrl ? getPublicImageUrl(id, event.updatedAt) : '' },
       { status: 201, headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    if (!(error instanceof BookingError)) console.error('Event creation failed:', error);
-    return NextResponse.json({ success: false, error: error instanceof BookingError ? error.message : 'Unable to create the event. Please retry.' },
-      { status: error instanceof BookingError ? error.status : 500 });
+    if (!(error instanceof BookingError || error instanceof ImageValidationError)) console.error('Event creation failed:', error);
+    return NextResponse.json({ success: false, error: (error instanceof BookingError || error instanceof ImageValidationError) ? error.message : 'Unable to create the event. Please retry.' },
+      { status: error instanceof BookingError ? error.status : error instanceof ImageValidationError ? 400 : 500 });
   }
 }

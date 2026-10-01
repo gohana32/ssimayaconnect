@@ -1,3 +1,4 @@
+import { validatedThumbnail, ImageValidationError } from '@/lib/image-validation';
 import { readEventForm, updateEvent, removeOrCancelEvent } from '@/lib/events/mutations';
 import { BookingError } from '@/lib/bookings/mutations';
 import { adminAccessError } from '@/lib/admin-api-auth';
@@ -311,8 +312,8 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     if (existing.status === 'CANCELLED') throw new BookingError(409, 'Cancelled events are kept for history and cannot be edited.');
     const form = await req.formData();
     const input = readEventForm(form, existing);
-    const thumbnail = form.get('thumbnail');
-    const imageUrl = thumbnail instanceof File && thumbnail.size > 0 ? await uploadImageToS3(thumbnail, 'thumbnails') : undefined;
+    const thumbnail = await validatedThumbnail(form.get('thumbnail'));
+    const imageUrl = thumbnail ? await uploadImageToS3(thumbnail, 'thumbnails') : undefined;
     const event = await updateEvent(id, input, imageUrl);
     emitRealtimeChange({ resource: 'events', action: 'updated', id });
     emitRealtimeChange({ resource: 'bookings', action: 'updated', id });
@@ -321,9 +322,9 @@ export async function PUT(req: NextRequest, context: RouteContext) {
       bookingFormTemplate: event.bookingFormTemplate, imageUrl: event.imageUrl ? getPublicImageUrl(id, event.updatedAt) : '', updatedAt: event.updatedAt },
       { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
-    if (!(error instanceof BookingError)) console.error('Event update failed:', error);
-    return NextResponse.json({ success: false, error: error instanceof BookingError ? error.message : 'Unable to update the event. Please retry.' },
-      { status: error instanceof BookingError ? error.status : 500 });
+    if (!(error instanceof BookingError || error instanceof ImageValidationError)) console.error('Event update failed:', error);
+    return NextResponse.json({ success: false, error: (error instanceof BookingError || error instanceof ImageValidationError) ? error.message : 'Unable to update the event. Please retry.' },
+      { status: error instanceof BookingError ? error.status : error instanceof ImageValidationError ? 400 : 500 });
   }
 }
 

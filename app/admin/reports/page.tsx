@@ -13,6 +13,10 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
+  useId,
+  isValidElement,
+  cloneElement,
   useState,
 } from 'react';
 
@@ -33,6 +37,7 @@ import {
 } from 'recharts';
 
 import * as XLSX from 'xlsx';
+import { csvEscape } from '@/lib/csv';
 import { useRealtimeRefresh } from '@/components/realtime/RealtimeProvider';
 
 /* ============================================================
@@ -158,6 +163,7 @@ type BookingLedgerRow = {
 };
 
 type ReportResponse = {
+  filters: FilterState;
   timeZone: string;
   success: boolean;
 
@@ -309,11 +315,14 @@ export default function ReportsPage() {
      LOAD REPORT
   ========================================================== */
 
+  const reportRequest = useRef<AbortController | null>(null);
   const loadReport =
     useCallback(
       async (
         quiet = false,
       ) => {
+        reportRequest.current?.abort();
+        const controller = new AbortController(); reportRequest.current = controller;
         if (quiet) {
           setRefreshing(
             true,
@@ -372,6 +381,7 @@ export default function ReportsPage() {
             await fetch(
               `/api/admin/reports?${params.toString()}`,
               {
+                signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
                 method:
                   'GET',
 
@@ -386,6 +396,7 @@ export default function ReportsPage() {
           const data =
             (await response.json()) as ReportResponse;
 
+          if (controller.signal.aborted) return;
           if (
             !response.ok ||
             !data.success
@@ -402,6 +413,7 @@ export default function ReportsPage() {
 
           setPage(1);
         } catch (err) {
+          if (controller.signal.aborted) return;
           console.error(
             'Report error:',
             err,
@@ -414,6 +426,7 @@ export default function ReportsPage() {
               : 'Unable to generate report.',
           );
         } finally {
+          if (!controller.signal.aborted) {
           setLoading(
             false,
           );
@@ -421,6 +434,7 @@ export default function ReportsPage() {
           setRefreshing(
             false,
           );
+          }
         }
       },
       [
@@ -433,7 +447,8 @@ export default function ReportsPage() {
   useRealtimeRefresh('attendance', () => { void loadReport(true); });
 
   useEffect(() => {
-    void loadReport();
+    const timer = window.setTimeout(() => { void loadReport(); }, 0);
+    return () => { clearTimeout(timer); reportRequest.current?.abort(); };
   }, [
     loadReport,
   ]);
@@ -503,20 +518,22 @@ export default function ReportsPage() {
   ========================================================== */
 
   function applyFilters() {
+    reportRequest.current?.abort(); setLoading(true);
     setPage(1);
 
     setFilters(
-      draft,
+      { ...draft },
     );
   }
 
   function clearFilters() {
+    reportRequest.current?.abort(); setLoading(true);
     setDraft(
       EMPTY_FILTERS,
     );
 
     setFilters(
-      EMPTY_FILTERS,
+      { ...EMPTY_FILTERS },
     );
 
     setPage(1);
@@ -537,7 +554,7 @@ export default function ReportsPage() {
 
   function exportCsv() {
     if (
-      !report ||
+      !report || loading || refreshing ||
       report.bookings.length ===
         0
     ) {
@@ -551,7 +568,7 @@ export default function ReportsPage() {
     try {
       const rows =
         buildExportRows(
-          report.bookings,
+          report.bookings, report,
         );
 
       const headers =
@@ -605,7 +622,7 @@ export default function ReportsPage() {
 
         buildFilename(
           'SSI-Maya-Booking-Report',
-          'csv',
+          'csv', report,
         ),
       );
     } finally {
@@ -618,7 +635,7 @@ export default function ReportsPage() {
   ========================================================== */
 
   function exportExcel() {
-    if (!report) {
+    if (!report || loading || refreshing) {
       return;
     }
 
@@ -628,6 +645,11 @@ export default function ReportsPage() {
 
     try {
       const overview = [
+        { Metric: 'Reporting Timezone', Value: report.timeZone },
+        { Metric: 'Event Filter', Value: report.eventOptions.find(event => event.id === report.filters.eventId)?.eventName || 'All events' },
+        { Metric: 'Registered From', Value: report.filters.from || 'Any date' },
+        { Metric: 'Registered To', Value: report.filters.to || 'Any date' },
+        { Metric: 'Attendance Filter', Value: report.filters.attendance },
         {
           Metric:
             'Report Generated',
@@ -771,7 +793,7 @@ export default function ReportsPage() {
 
       const bookingRows =
         buildExportRows(
-          report.bookings,
+          report.bookings, report,
         );
 
       const workbook =
@@ -843,7 +865,7 @@ export default function ReportsPage() {
         workbook,
         buildFilename(
           'SSI-Maya-Full-Report',
-          'xlsx',
+          'xlsx', report,
         ),
       );
     } finally {
@@ -856,6 +878,7 @@ export default function ReportsPage() {
   ========================================================== */
 
   function printReport() {
+    if (!report || loading || refreshing) return;
     window.print();
   }
 
@@ -866,6 +889,7 @@ export default function ReportsPage() {
   return (
     <div
       className="
+        report-page
         w-full
         min-w-0
         max-w-full
@@ -903,6 +927,12 @@ export default function ReportsPage() {
           )}
         </p>
       </div>
+
+      {report && <p className="report-filter-summary text-xs text-gray-600" data-testid="report-filter-summary">
+        Displayed report: {report.eventOptions.find(event => event.id === report.filters.eventId)?.eventName || 'All events'};
+        registered {report.filters.from || 'any date'} to {report.filters.to || 'any date'};
+        attendance {report.filters.attendance}; timezone {report.timeZone}.
+      </p>}
 
       {/* ======================================================
           PAGE HEADER
@@ -1012,7 +1042,7 @@ export default function ReportsPage() {
 
             <HeaderAction
               disabled={
-                !report ||
+                !report || loading || refreshing ||
                 !report
                   .bookings
                   .length ||
@@ -1033,7 +1063,7 @@ export default function ReportsPage() {
             <HeaderAction
               primary
               disabled={
-                !report ||
+                !report || loading || refreshing ||
                 Boolean(
                   exporting,
                 )
@@ -1053,7 +1083,7 @@ export default function ReportsPage() {
 
             <HeaderAction
               disabled={
-                !report
+                !report || loading || refreshing
               }
               onClick={
                 printReport
@@ -2385,7 +2415,7 @@ export default function ReportsPage() {
             divide-y
             divide-gray-100
 
-            lg:hidden
+            lg:hidden print:hidden
           "
         >
           {loading ? (
@@ -2423,10 +2453,10 @@ export default function ReportsPage() {
             hidden
             overflow-x-auto
 
-            lg:block
+            lg:block print:block
           "
         >
-          <table
+          <table aria-label="Booking ledger"
             className="
               data-table
               min-w-[1600px]
@@ -2489,12 +2519,12 @@ export default function ReportsPage() {
                     11
                   }
                 />
-              ) : visibleBookings.length ? (
-                visibleBookings.map(
+              ) : report?.bookings.length ? (
+                report.bookings.map(
                   (
-                    booking,
+                    booking, index,
                   ) => (
-                    <tr
+                    <tr className={index >= (page - 1) * PAGE_SIZE && index < page * PAGE_SIZE ? undefined : "hidden print:table-row"}
                       key={
                         booking.id
                       }
@@ -2883,30 +2913,12 @@ function HeaderAction({
    FILTER FIELD
 ============================================================ */
 
-function FilterField({
-  label,
-  children,
-}: {
-  label: string;
-
-  children: ReactNode;
-}) {
-  return (
-    <label
-      className="
-        block
-        min-w-0
-      "
-    >
-      <span
-        className="form-label"
-      >
-        {label}
-      </span>
-
-      {children}
-    </label>
-  );
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+  const generatedId = useId();
+  const child = isValidElement<{ id?: string }>(children) ? children : null;
+  const id = child?.props.id || generatedId;
+  return <div className="block min-w-0"><label htmlFor={id} className="form-label">{label}</label>
+    {child ? cloneElement(child, { id }) : children}</div>;
 }
 
 /* ============================================================
@@ -2938,7 +2950,7 @@ function ReportCard({
 
         shadow-sm
 
-        print:break-inside-avoid
+        print:overflow-visible
 
         ${printClassName}
       `}
@@ -4849,11 +4861,18 @@ function EmptyRow({
 function buildExportRows(
   bookings:
     BookingLedgerRow[],
+  report: ReportResponse,
 ) {
   return bookings.map(
     (
       booking,
     ) => ({
+      'Report Generated': report.generatedAt,
+      'Reporting Timezone': report.timeZone,
+      'Event Filter': report.eventOptions.find(event => event.id === report.filters.eventId)?.eventName || 'All events',
+      'Registered From Filter': report.filters.from,
+      'Registered To Filter': report.filters.to,
+      'Attendance Filter': report.filters.attendance,
       'Booking ID':
         booking.bookingId,
 
@@ -4929,26 +4948,6 @@ function buildExportRows(
   );
 }
 
-function csvEscape(
-  value:
-    unknown,
-) {
-  const text =
-    value ===
-      undefined ||
-    value ===
-      null
-      ? ''
-      : String(
-          value,
-        );
-
-  return `"${text.replace(
-    /"/g,
-    '""',
-  )}"`;
-}
-
 function downloadBlob(
   blob: Blob,
   filename: string,
@@ -4985,7 +4984,8 @@ function downloadBlob(
 function buildFilename(
   prefix: string,
   extension: string,
-) { return `${prefix}-${zonedDate(new Date(), deviceTimeZone())}.${extension}`; }
+  report: ReportResponse,
+) { return `${prefix}-${report.filters.eventId || 'all-events'}-${zonedDate(report.generatedAt, report.timeZone)}.${extension}`; }
 
 /* ============================================================
    DATE

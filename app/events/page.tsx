@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import { ticketStorage } from '@/lib/booking-contracts';
 
 import { calendarDateFormatter } from '@/lib/events/dates';
@@ -1584,7 +1586,7 @@ function SearchBar({
         <SearchIcon />
       </span>
 
-      <input
+      <input aria-label="Search events, venue or type"
         type="search"
         value={
           value
@@ -3010,6 +3012,7 @@ function FeedbackEventPicker({
   onClose:
     () => void;
 }) {
+  const dialog = useDialog(true, onClose, 'Select a ticket for feedback');
   const [
     search,
     setSearch,
@@ -3120,7 +3123,7 @@ function FeedbackEventPicker({
         }
       }}
     >
-      <motion.section
+      <motion.section {...dialog}
         initial={{
           opacity: 0,
           y: 22,
@@ -4176,59 +4179,6 @@ function MetaRow({
    MOBILE NAV ITEM
 ============================================================ */
 
-function MobileNavItem({
-  href,
-  label,
-  icon,
-  active = false,
-}: {
-  href:
-    string;
-
-  label:
-    string;
-
-  icon:
-    ReactNode;
-
-  active?:
-    boolean;
-}) {
-  return (
-    <Link
-      href={
-        href
-      }
-      className={`
-        flex
-        min-h-[54px]
-
-        flex-col
-        items-center
-        justify-center
-        gap-1
-
-        text-[9px]
-        font-medium
-
-        transition-colors
-
-        ${
-          active
-            ? 'text-primary'
-            : 'text-gray-400'
-        }
-      `}
-    >
-      {icon}
-
-      <span>
-        {label}
-      </span>
-    </Link>
-  );
-}
-
 /* ============================================================
    PLACEHOLDER
 ============================================================ */
@@ -4616,24 +4566,6 @@ function TicketIcon() {
       <path
         strokeLinecap="round"
         d="M12 7v10"
-      />
-    </svg>
-  );
-}
-
-function HomeIcon() {
-  return (
-    <svg
-      className="h-[18px] w-[18px]"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.9}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"
       />
     </svg>
   );

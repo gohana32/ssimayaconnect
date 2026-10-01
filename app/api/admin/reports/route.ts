@@ -26,9 +26,7 @@ import {
   Slot,
 } from '@/models/Slot';
 
-import {
-  DaySchedule,
-} from '@/models/DaySchedule';
+import '@/models/DaySchedule'; // Register the populated model.
 
 export const dynamic =
   'force-dynamic';

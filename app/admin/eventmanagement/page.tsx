@@ -1,5 +1,7 @@
 'use client';
 
+import { useDialog } from '@/lib/use-dialog';
+
 import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
 
 import { canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
@@ -1001,6 +1003,7 @@ export default function EventsManagementPage() {
                     .value,
                 )
               }
+              aria-label="Search event, venue or type"
               placeholder="Search event, venue or type..."
               className="
                 h-10
@@ -2654,6 +2657,7 @@ function DeleteModal({
   onConfirm:
     () => void;
 }) {
+  const dialog = useDialog(true, () => { if (!deleting) onCancel(); }, target?.hasBookings ? 'Cancel event' : 'Delete event');
   return (
     <>
       <motion.button
@@ -2705,7 +2709,7 @@ function DeleteModal({
           sm:p-4
         "
       >
-        <motion.div
+        <motion.div {...dialog}
           initial={{
             opacity:
               0,
