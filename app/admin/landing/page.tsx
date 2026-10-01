@@ -1,5 +1,9 @@
 'use client';
 
+import { AdminAccess } from '@/components/admin/AdminSessionContext';
+
+import { adminFetch as fetch } from '@/lib/admin-auth';
+
 import { calendarDateFormatter } from '@/lib/events/dates';
 
 import type {
@@ -499,8 +503,8 @@ export default function AdminDashboard() {
             lg:divide-x
           "
         >
-          <QuickActionCard
-            href="/admin/eventmanagement"
+          <AdminAccess permission="events" action="write"><QuickActionCard
+            href="/admin/eventmanagement/new"
             title="Create Event"
             description="Create and configure a new event."
             icon={
@@ -509,9 +513,9 @@ export default function AdminDashboard() {
             index={
               0
             }
-          />
+          /></AdminAccess>
 
-          <QuickActionCard
+          <AdminAccess permission="bookings" action="read"><QuickActionCard
             href="/admin/bookings"
             title="Manage Bookings"
             description="Review and manage registrations."
@@ -521,9 +525,9 @@ export default function AdminDashboard() {
             index={
               1
             }
-          />
+          /></AdminAccess>
 
-          <QuickActionCard
+          <AdminAccess permission="check-in" action="read"><QuickActionCard
             href="/admin/check-in"
             title="Check-in Scanner"
             description="Scan attendee QR passes at venue."
@@ -533,9 +537,9 @@ export default function AdminDashboard() {
             index={
               2
             }
-          />
+          /></AdminAccess>
 
-          <QuickActionCard
+          <AdminAccess permission="reports" action="read"><QuickActionCard
             href="/admin/reports"
             title="Reports & Export"
             description="Analyse and export operational data."
@@ -545,7 +549,7 @@ export default function AdminDashboard() {
             index={
               3
             }
-          />
+          /></AdminAccess>
         </div>
       </motion.section>
 
@@ -1624,6 +1628,7 @@ function SectionHeader({
         </p>
       </div>
 
+      <AdminAccess permission={href === '/admin/bookings' ? 'bookings' : 'events'}>
       <Link
         href={
           href
@@ -1661,7 +1666,7 @@ function SectionHeader({
         >
           <ArrowIcon />
         </span>
-      </Link>
+      </Link></AdminAccess>
     </div>
   );
 }

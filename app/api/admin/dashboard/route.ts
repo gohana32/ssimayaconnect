@@ -10,9 +10,7 @@ import {
   connectDB,
 } from '@/lib/db';
 
-import {
-  requireAdminSession,
-} from '@/lib/admin-server-auth';
+import { adminAccessError } from '@/lib/admin-api-auth';
 
 import {
   Event,
@@ -43,24 +41,8 @@ export async function GET() {
        AUTH
     ======================================================== */
 
-    const authenticated =
-      await requireAdminSession();
-
-    if (!authenticated) {
-      return NextResponse.json(
-        {
-          success:
-            false,
-
-          message:
-            'Unauthorized.',
-        },
-        {
-          status:
-            401,
-        },
-      );
-    }
+    const denied = await adminAccessError('dashboard');
+    if (denied) return denied;
 
     await connectDB();
 

@@ -1,3 +1,4 @@
+import { adminAccessError } from '@/lib/admin-api-auth';
 import { eventTimeZone } from '@/lib/events/dates';
 import {
   NextRequest,
@@ -32,7 +33,7 @@ import { Slot } from '@/models/Slot';
 import {
   emitRealtimeChange,
 } from '@/lib/realtime';
-import { logAdminActivity, requireAdminSession, requireAdminWriteSession } from '@/lib/admin-server-auth';
+import { logAdminActivity } from '@/lib/admin-server-auth';
 
 type EventType =
   | 'conference'
@@ -289,19 +290,8 @@ export async function GET() {
 export async function POST(
   req: NextRequest,
 ) {
-  if (!(await requireAdminSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required.' },
-      { status: 401 },
-    );
-  }
-
-  if (!(await requireAdminWriteSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Forbidden. You have View-Only access and cannot create events.' },
-      { status: 403 },
-    );
-  }
+  const denied = await adminAccessError('events', 'write');
+  if (denied) return denied;
 
   try {
     await connectDB();

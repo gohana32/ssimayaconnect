@@ -1,5 +1,7 @@
 'use client';
 
+import { adminFetch as fetch } from '@/lib/admin-auth';
+
 import { eventDateFormatter } from '@/lib/events/dates';
 
 import type {

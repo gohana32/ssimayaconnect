@@ -1,3 +1,4 @@
+import { adminAccessError } from '@/lib/admin-api-auth';
 import { BookingError, lockBookingEvent, contactConflict, deleteBooking } from '@/lib/bookings/mutations';
 import { emitRealtimeChange } from '@/lib/realtime';
 import { getEventStatus } from '@/lib/events/status';
@@ -14,9 +15,6 @@ import {
 } from '@/lib/db';
 
 import {
-  requireAdminSession,
-  requireAdminWriteSession,
-  requireAdminDeleteSession,
   logAdminActivity,
 } from '@/lib/admin-server-auth';
 
@@ -79,16 +77,6 @@ type BookingFeedback = {
    AUTH
 ============================================================ */
 
-async function authorize() {
-  return await requireAdminSession();
-}
-
-async function authorizeWrite() {
-  const isAuth = await requireAdminSession();
-  if (!isAuth) return false;
-  return await requireAdminWriteSession();
-}
-
 /* ============================================================
    GET
 ============================================================ */
@@ -98,20 +86,8 @@ export async function GET(
   context: RouteContext,
 ) {
   try {
-    if (
-      !(await authorize())
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          message:
-            'Unauthorized.',
-        },
-        {
-          status: 401,
-        },
-      );
-    }
+    const denied = await adminAccessError('bookings', 'read');
+    if (denied) return denied;
 
     const {
       id,
@@ -204,37 +180,8 @@ export async function PATCH(
   context: RouteContext,
 ) {
   try {
-    if (
-      !(await authorize())
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            'Unauthorized.',
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
-    if (
-      !(await authorizeWrite())
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            'Forbidden. You have View-Only access and cannot modify bookings.',
-        },
-        {
-          status: 403,
-        },
-      );
-    }
+    const denied = await adminAccessError('bookings', 'write');
+    if (denied) return denied;
 
     const {
       id,
@@ -446,31 +393,8 @@ export async function DELETE(
   context: RouteContext,
 ) {
   try {
-    if (
-      !(await authorize())
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-
-          message:
-            'Unauthorized.',
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
-    if (!(await requireAdminDeleteSession())) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: 'Forbidden. You do not have permission to delete bookings.',
-        },
-        { status: 403 },
-      );
-    }
+    const denied = await adminAccessError('bookings', 'delete');
+    if (denied) return denied;
 
     const {
       id,

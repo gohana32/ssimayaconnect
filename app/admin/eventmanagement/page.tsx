@@ -1,5 +1,9 @@
 'use client';
 
+import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
+
+import { canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
+
 import type {
   ReactNode,
 } from 'react';
@@ -96,6 +100,7 @@ const EASE = [
 ============================================================ */
 
 export default function EventsManagementPage() {
+  const currentUser = useAdminSession();
   const [
     events,
     setEvents,
@@ -766,7 +771,7 @@ export default function EventsManagementPage() {
                 0.98,
             }}
           >
-            <Link
+            <AdminAccess permission="events" action="write"><Link
               href="/admin/eventmanagement/new"
               className="
                 inline-flex
@@ -803,7 +808,7 @@ export default function EventsManagementPage() {
               <PlusIcon />
 
               New Event
-            </Link>
+            </Link></AdminAccess>
           </motion.div>
         </div>
       </motion.header>
@@ -1616,7 +1621,7 @@ export default function EventsManagementPage() {
       ====================================================== */}
 
       <AnimatePresence>
-        {deleteTarget && (
+        {deleteTarget && canAdminDelete(currentUser) && (
           <DeleteModal
             target={
               deleteTarget
@@ -2183,7 +2188,7 @@ function EventCard({
                 gap-2
               "
             >
-              <Link
+              <AdminAccess permission="events" action="write"><Link
                 href={`/admin/eventmanagement/${event._id}/edit`}
                 className="
                   inline-flex
@@ -2218,9 +2223,9 @@ function EventCard({
                 <EditIcon />
 
                 Edit Event
-              </Link>
+              </Link></AdminAccess>
 
-              <button
+              <AdminAccess permission="events" action="delete"><button
                 type="button"
                 disabled={
                   deleting
@@ -2270,7 +2275,7 @@ function EventCard({
                 {deleting
                   ? 'Deleting'
                   : 'Delete'}
-              </button>
+              </button></AdminAccess>
             </div>
           </div>
         </div>

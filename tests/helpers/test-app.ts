@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { randomBytes, scryptSync } from 'node:crypto';
+import { createHmac, randomBytes, scryptSync } from 'node:crypto';
 import { MongoClient } from 'mongodb';
 
 export const baseURL = process.env.TEST_BASE_URL || 'http://127.0.0.1:3101';
@@ -14,14 +14,15 @@ export async function testDatabase() {
   return { client, db: client.db() };
 }
 
-export async function createTestAdmin(permissions = ['dashboard', 'events', 'bookings', 'check-in', 'reports']) {
+export async function createTestAdmin(permissions = ['dashboard', 'events', 'bookings', 'check-in', 'reports'],
+  options: { canCreate?: boolean; canDelete?: boolean; role?: 'admin' | 'staff' } = {}) {
   const { client, db } = await testDatabase();
   const username = `test_${randomBytes(8).toString('hex')}`;
   const password = randomBytes(24).toString('hex');
   const salt = randomBytes(16).toString('hex');
   await db.collection('adminusers').insertOne({
-    username, name: 'Local Test Admin', role: 'admin', isActive: true,
-    permissions, canCreate: true, canDelete: true,
+    username, name: 'Local Test Admin', role: options.role || 'admin', isActive: true,
+    permissions, canCreate: options.canCreate ?? true, canDelete: options.canDelete ?? true,
     passwordSalt: salt, passwordHash: scryptSync(password, salt, 64).toString('hex'),
     createdAt: new Date(), updatedAt: new Date(),
   });
@@ -37,4 +38,11 @@ export async function createTestAdmin(permissions = ['dashboard', 'events', 'boo
 
 export async function api(path: string, options: RequestInit = {}) {
   return fetch(`${baseURL}${path}`, options);
+}
+
+/** Only the isolated server's synthetic secret; never reads deployed credentials. */
+export function signTestAdminCookie(payload: Record<string, unknown>) {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const signature = createHmac('sha256', 'local-test-session-secret-for-oct01-only').update(encoded).digest('base64url');
+  return `ssi_admin_session=${encoded}.${signature}`;
 }

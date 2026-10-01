@@ -1,5 +1,9 @@
 'use client';
 
+import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
+
+import { canAdminCreate, canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
+
 import { calendarDateFormatter, eventDateFormatter, eventTimeZone } from '@/lib/events/dates';
 
 import type {
@@ -207,7 +211,8 @@ export default function BookingDetailsPage() {
   const id =
     params.id;
 
-  const isEditing =
+  const currentUser = useAdminSession();
+  const isEditing = canAdminCreate(currentUser) &&
     searchParams.get(
       'mode',
     ) ===
@@ -1131,7 +1136,7 @@ export default function BookingDetailsPage() {
                 </button>
               </>
             ) : (
-              <button
+              <AdminAccess permission="bookings" action="write"><button
                 type="button"
                 onClick={() =>
                   router.replace(
@@ -1166,10 +1171,10 @@ export default function BookingDetailsPage() {
                 <EditIcon />
 
                 Edit
-              </button>
+              </button></AdminAccess>
             )}
 
-            <button
+            <AdminAccess permission="bookings" action="delete"><button
               type="button"
               onClick={() =>
                 setDeleteOpen(
@@ -1207,7 +1212,7 @@ export default function BookingDetailsPage() {
               <TrashIcon />
 
               Delete
-            </button>
+            </button></AdminAccess>
           </div>
         </div>
 
@@ -1554,7 +1559,7 @@ export default function BookingDetailsPage() {
       {/* DELETE MODAL */}
 
       <AnimatePresence>
-        {deleteOpen && (
+        {deleteOpen && canAdminDelete(currentUser) && (
           <motion.div
             initial={{
               opacity: 0,

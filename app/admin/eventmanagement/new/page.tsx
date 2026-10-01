@@ -1,5 +1,7 @@
 'use client';
 
+import { adminFetch as fetch } from '@/lib/admin-auth';
+
 import TimeZoneSelect from '@/app/components/TimeZoneSelect';
 import { calendarDateFormatter } from '@/lib/events/dates';
 

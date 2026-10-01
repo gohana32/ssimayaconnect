@@ -1,5 +1,9 @@
 'use client';
 
+import { AdminAccess, useAdminSession } from '@/components/admin/AdminSessionContext';
+
+import { canAdminDelete, adminFetch as fetch } from '@/lib/admin-auth';
+
 import { calendarDateFormatter, todayCalendarDate, eventTimeZone } from '@/lib/events/dates';
 
 import type {
@@ -116,6 +120,7 @@ const EASE = [
 ============================================================ */
 
 export default function AdminBookingsPage() {
+  const currentUser = useAdminSession();
   const router =
     useRouter();
 
@@ -1556,7 +1561,7 @@ export default function AdminBookingsPage() {
                               <EyeIcon />
                             </IconButton>
 
-                            <IconButton
+                            <AdminAccess permission="bookings" action="write"><IconButton
                               title="Edit booking"
                               onClick={() =>
                                 editBooking(
@@ -1565,9 +1570,9 @@ export default function AdminBookingsPage() {
                               }
                             >
                               <EditIcon />
-                            </IconButton>
+                            </IconButton></AdminAccess>
 
-                            <IconButton
+                            <AdminAccess permission="bookings" action="delete"><IconButton
                               danger
                               title="Delete booking"
                               onClick={() =>
@@ -1588,7 +1593,7 @@ export default function AdminBookingsPage() {
                               }
                             >
                               <TrashIcon />
-                            </IconButton>
+                            </IconButton></AdminAccess>
                           </div>
                         </td>
                       </tr>
@@ -1914,7 +1919,7 @@ export default function AdminBookingsPage() {
                         }
                       />
 
-                      <MobileAction
+                      <AdminAccess permission="bookings" action="write"><MobileAction
                         icon={
                           <EditIcon />
                         }
@@ -1924,9 +1929,9 @@ export default function AdminBookingsPage() {
                             booking._id,
                           )
                         }
-                      />
+                      /></AdminAccess>
 
-                      <MobileAction
+                      <AdminAccess permission="bookings" action="delete"><MobileAction
                         danger
                         icon={
                           <TrashIcon />
@@ -1948,7 +1953,7 @@ export default function AdminBookingsPage() {
                             },
                           )
                         }
-                      />
+                      /></AdminAccess>
                     </div>
                   </div>
                 </motion.article>
@@ -2003,7 +2008,7 @@ export default function AdminBookingsPage() {
       ====================================================== */}
 
       <AnimatePresence>
-        {deleteTarget && (
+        {deleteTarget && canAdminDelete(currentUser) && (
           <motion.div
             initial={{
               opacity: 0,

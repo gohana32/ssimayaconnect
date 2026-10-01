@@ -1,5 +1,9 @@
 'use client';
 
+import { useAdminSession } from '@/components/admin/AdminSessionContext';
+
+import { adminFetch as fetch } from '@/lib/admin-auth';
+
 import { eventDateFormatter, zonedDayStart, calendarDate, DAY_MS, deviceTimeZone } from '@/lib/events/dates';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -25,10 +29,8 @@ import {
   Check,
 } from 'lucide-react';
 import {
-  getAdminTokenPayload,
   canAdminCreate,
   canAdminDelete,
-  type AdminTokenPayload,
   type AdminPermission,
   type AdminRole,
 } from '@/lib/admin-auth';
@@ -108,7 +110,7 @@ const ACTIVITY_ACTIONS: { id: string; label: string; className: string }[] = [
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export default function AdminAuthManagementPage() {
-  const [currentUser, setCurrentUser] = useState<AdminTokenPayload | null>(null);
+  const currentUser = useAdminSession();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -174,9 +176,8 @@ export default function AdminAuthManagementPage() {
   const [logToDate, setLogToDate] = useState('');
 
   useEffect(() => {
-    const payload = getAdminTokenPayload();
-    setCurrentUser(payload);
-    loadUsers();
+    const timer = window.setTimeout(() => { void loadUsers(); }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
   useEffect(() => {

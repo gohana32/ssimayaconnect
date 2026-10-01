@@ -65,11 +65,11 @@ export async function GET(
             false,
 
           message:
-            'Unauthorized.',
+            admin ? 'Check-in permission required.' : 'Please sign in again.',
         },
         {
           status:
-            401,
+            admin ? 403 : 401,
         },
       );
     }
@@ -376,11 +376,11 @@ export async function POST(
             false,
 
           message:
-            'Unauthorized.',
+            admin ? 'Check-in permission required.' : 'Please sign in again.',
         },
         {
           status:
-            401,
+            admin ? 403 : 401,
         },
       );
     }

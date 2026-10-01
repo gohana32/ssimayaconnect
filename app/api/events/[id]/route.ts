@@ -1,3 +1,4 @@
+import { adminAccessError } from '@/lib/admin-api-auth';
 import { eventTimeZone } from '@/lib/events/dates';
 import {
   NextRequest,
@@ -34,12 +35,7 @@ import { Slot } from '@/models/Slot';
 import {
   emitRealtimeChange,
 } from '@/lib/realtime';
-import {
-  requireAdminSession,
-  requireAdminWriteSession,
-  requireAdminDeleteSession,
-  logAdminActivity,
-} from '@/lib/admin-server-auth';
+import { logAdminActivity } from '@/lib/admin-server-auth';
 
 type RouteContext = {
   params: Promise<{
@@ -353,19 +349,8 @@ export async function PUT(
   req: NextRequest,
   context: RouteContext,
 ) {
-  if (!(await requireAdminSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required.' },
-      { status: 401 },
-    );
-  }
-
-  if (!(await requireAdminWriteSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Forbidden. You have View-Only access and cannot modify events.' },
-      { status: 403 },
-    );
-  }
+  const denied = await adminAccessError('events', 'write');
+  if (denied) return denied;
 
   try {
     await connectDB();
@@ -1279,19 +1264,8 @@ export async function DELETE(
   _req: NextRequest,
   context: RouteContext,
 ) {
-  if (!(await requireAdminSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Authentication required.' },
-      { status: 401 },
-    );
-  }
-
-  if (!(await requireAdminDeleteSession())) {
-    return NextResponse.json(
-      { success: false, error: 'Forbidden. You do not have permission to delete events.' },
-      { status: 403 },
-    );
-  }
+  const denied = await adminAccessError('events', 'delete');
+  if (denied) return denied;
 
   try {
     await connectDB();
